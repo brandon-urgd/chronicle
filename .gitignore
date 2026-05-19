@@ -1,21 +1,33 @@
 # Dependencies
-node_modules/
-.venv/
-__pycache__/
-*.pyc
-
-# Environment
-.env
-.env.local
+frontend/node_modules/
+mcp-server/__pycache__/
 
 # Build output
-dist/
-build/
+frontend/dist/
+src-tauri/target/
 
 # Database
 *.db
 *.db-wal
 *.db-shm
+
+# Environment / Config
+.env
+.env.local
+chronicle_config.json
+
+# Logs
+logs/
+*.log
+
+# Port file (runtime)
+.port
+
+# Installers / Binaries
+*.exe
+*.msi
+*.dmg
+*.AppImage
 
 # IDE
 .vscode/
@@ -27,11 +39,12 @@ build/
 .DS_Store
 Thumbs.db
 
-# Test / Coverage
-.coverage
+# Test artifacts
+test-output.txt
+test_output.log
+coverage/
 htmlcov/
 .pytest_cache/
 
-# Logs
-logs/
-*.log
+# Backup files
+chronicle_backup_*.json

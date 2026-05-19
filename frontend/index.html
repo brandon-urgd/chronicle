@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#111827" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>CHRONICLE</title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { background: #111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      #pre-loader {
+        position: fixed; inset: 0; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; z-index: 9999;
+        transition: opacity 0.4s ease;
+      }
+      .loader-mark {
+        width: 56px; height: 56px; border-radius: 14px;
+        background: linear-gradient(135deg, #F9FAFB 0%, #D1D5DB 100%);
+        color: #111827; font-size: 28px; font-weight: 800;
+        display: flex; align-items: center; justify-content: center;
+        margin-bottom: 16px;
+        animation: pulse 2s ease-in-out infinite;
+        box-shadow: 0 4px 20px rgba(249, 250, 251, 0.15);
+      }
+      .loader-wordmark {
+        font-size: 15px; font-weight: 700; letter-spacing: 4px;
+        color: #F9FAFB; margin-bottom: 24px;
+      }
+      .loader-bar {
+        width: 120px; height: 3px; border-radius: 2px;
+        background: #374151; overflow: hidden;
+      }
+      .loader-bar-fill {
+        width: 40%; height: 100%; border-radius: 2px;
+        background: linear-gradient(90deg, #F9FAFB, #9CA3AF);
+        animation: slide 1.5s ease-in-out infinite;
+      }
+      .loader-status {
+        margin-top: 12px; font-size: 12px; color: #9CA3AF;
+        letter-spacing: 0.5px;
+      }
+      @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
+      @keyframes slide { 0%{transform:translateX(-100%)} 50%{transform:translateX(200%)} 100%{transform:translateX(-100%)} }
+    </style>
+  </head>
+  <body>
+    <div id="pre-loader">
+      <div class="loader-mark">C</div>
+      <div class="loader-wordmark">CHRONICLE</div>
+      <div class="loader-bar"><div class="loader-bar-fill"></div></div>
+      <div class="loader-status">Starting up…</div>
+    </div>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+    <script>
+      // Remove pre-loader once React mounts (multiple strategies for reliability)
+      function killLoader() {
+        const loader = document.getElementById('pre-loader');
+        if (loader) { loader.style.opacity = '0'; setTimeout(() => loader.remove(), 400); }
+      }
+      // Strategy 1: MutationObserver on #root
+      const observer = new MutationObserver(() => {
+        const root = document.getElementById('root');
+        if (root && root.children.length > 0) { killLoader(); observer.disconnect(); }
+      });
+      observer.observe(document.getElementById('root'), { childList: true });
+      // Strategy 2: Fallback timeout (if observer misses it, kill after 15s max)
+      setTimeout(killLoader, 15000);
+    </script>
+  </body>
+</html>
