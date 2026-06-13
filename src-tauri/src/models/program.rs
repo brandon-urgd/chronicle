@@ -136,9 +136,9 @@ mod tests {
 
     #[test]
     fn test_create_program_deserialization_minimal() {
-        let json = r#"{"name": "My Program"}"#;
+        let json = r#"{"name": "ACO AI"}"#;
         let program: CreateProgram = serde_json::from_str(json).unwrap();
-        assert_eq!(program.name, "My Program");
+        assert_eq!(program.name, "ACO AI");
         assert_eq!(program.program_type, "Primary");
         assert_eq!(program.status, "active");
         assert_eq!(program.sort_order, 0);
@@ -150,8 +150,8 @@ mod tests {
     #[test]
     fn test_create_program_deserialization_full() {
         let json = r##"{
-            "name": "My Program",
-            "description": "AI tools program",
+            "name": "ACO AI",
+            "description": "AI program for ACO",
             "program_type": "Secondary",
             "status": "paused",
             "owner": "Brandon",
@@ -159,8 +159,8 @@ mod tests {
             "sort_order": 5
         }"##;
         let program: CreateProgram = serde_json::from_str(json).unwrap();
-        assert_eq!(program.name, "My Program");
-        assert_eq!(program.description, Some("AI tools program".to_string()));
+        assert_eq!(program.name, "ACO AI");
+        assert_eq!(program.description, Some("AI program for ACO".to_string()));
         assert_eq!(program.program_type, "Secondary");
         assert_eq!(program.status, "paused");
         assert_eq!(program.owner, Some("Brandon".to_string()));
@@ -187,7 +187,7 @@ mod tests {
             id: 1,
             created_at: "2025-01-15T10:00:00".to_string(),
             updated_at: "2025-01-15T10:00:00".to_string(),
-            name: "My Program".to_string(),
+            name: "ACO AI".to_string(),
             description: None,
             program_type: "Primary".to_string(),
             status: "active".to_string(),
@@ -203,7 +203,7 @@ mod tests {
 
         let json = serde_json::to_value(&response).unwrap();
         assert_eq!(json["id"], 1);
-        assert_eq!(json["name"], "My Program");
+        assert_eq!(json["name"], "ACO AI");
         assert_eq!(json["program_type"], "Primary");
         assert_eq!(json["status"], "active");
         assert_eq!(json["sort_order"], 0);

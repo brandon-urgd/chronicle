@@ -412,10 +412,6 @@ pub struct CompleteRequest {
     #[serde(default)]
     pub description: Option<String>,
     #[serde(default)]
-    pub impact: Option<String>,
-    #[serde(default)]
-    pub metrics: Option<String>,
-    #[serde(default)]
     pub visibility: Option<String>,
 }
 
@@ -849,7 +845,6 @@ mod tests {
         assert_eq!(req.due_date, Some("2025-01-15".to_string()));
         assert_eq!(req.notes, Some("Done early".to_string()));
         assert!(req.description.is_none());
-        assert!(req.impact.is_none());
     }
 
     #[test]

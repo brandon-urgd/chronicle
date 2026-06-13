@@ -16,10 +16,10 @@ use std::path::Path;
 use tracing::{info, warn};
 
 /// Current schema version. Increment when schema changes.
-const CURRENT_SCHEMA_VERSION: i32 = 3;
+const CURRENT_SCHEMA_VERSION: i32 = 4;
 
 /// Semver string stamped after all migrations complete.
-const V2_SCHEMA_VERSION: &str = "3.0.0";
+const V2_SCHEMA_VERSION: &str = "3.1.0";
 
 /// Run all pending migrations on the database.
 ///
@@ -74,7 +74,9 @@ pub fn run_migrations(conn: &rusqlite::Connection, data_dir: &Path) -> Result<()
 
 /// Check if the database needs migration by reading `schema_version` from settings.
 ///
-/// Returns `true` if the version is below [`CURRENT_SCHEMA_VERSION`] or cannot be read.
+/// Returns `true` if the version is below the current version or cannot be read.
+/// Recognizes both integer ("3") and semver ("3.1.0") formats.
+/// A database at "3.1.0" (or higher) is considered fully migrated.
 fn check_needs_migration(conn: &rusqlite::Connection) -> bool {
     let version = conn
         .query_row(
@@ -86,13 +88,20 @@ fn check_needs_migration(conn: &rusqlite::Connection) -> bool {
 
     match version {
         Some(v) => {
-            // Handle both integer ("2") and semver ("2.0.0") formats
-            let major: i32 = if v.contains('.') {
-                v.split('.').next().and_then(|s| s.parse().ok()).unwrap_or(0)
+            // Handle both integer ("2") and semver ("3.1.0") formats
+            if v.contains('.') {
+                let parts: Vec<u32> = v.split('.').filter_map(|s| s.parse().ok()).collect();
+                let major = parts.first().copied().unwrap_or(0);
+                let minor = parts.get(1).copied().unwrap_or(0);
+                // v3.1.0+ is fully current (CURRENT_SCHEMA_VERSION = 4 maps to semver 3.1.0)
+                if major > 3 || (major == 3 && minor >= 1) {
+                    return false;
+                }
+                (major as i32) < CURRENT_SCHEMA_VERSION
             } else {
-                v.parse().unwrap_or(0)
-            };
-            major < CURRENT_SCHEMA_VERSION
+                let major: i32 = v.parse().unwrap_or(0);
+                major < CURRENT_SCHEMA_VERSION
+            }
         }
         None => true, // settings table might not exist or key not set
     }
@@ -200,11 +209,13 @@ fn run_alter_table_migrations(conn: &rusqlite::Connection) {
     conn.execute_batch("ALTER TABLE entries ADD COLUMN scheduled_item_id INTEGER")
         .ok();
 
-    // Add program_id to review_sessions (ON DELETE SET NULL)
-    conn.execute_batch(
-        "ALTER TABLE review_sessions ADD COLUMN program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL",
-    )
-    .ok();
+    // Add program_id to review_sessions (ON DELETE SET NULL) — only if table exists (pre-v3.1)
+    if table_exists(conn, "review_sessions") {
+        conn.execute_batch(
+            "ALTER TABLE review_sessions ADD COLUMN program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL",
+        )
+        .ok();
+    }
 
     // v4: entries.is_pinned
     conn.execute_batch("ALTER TABLE entries ADD COLUMN is_pinned INTEGER NOT NULL DEFAULT 0")
@@ -252,12 +263,21 @@ fn run_alter_table_migrations(conn: &rusqlite::Connection) {
 /// drop old, rename new.
 ///
 /// Each migration checks if it's needed before executing (idempotent).
+/// Migrations for dropped tables (links, attachments, review_notes) are skipped
+/// if those tables no longer exist (v3.1+ lean schema).
 fn run_check_constraint_migrations(conn: &rusqlite::Connection) -> Result<()> {
     migrate_entries_action_item(conn)?;
     migrate_entries_program_update(conn)?;
-    migrate_links_program(conn)?;
-    migrate_attachments_program(conn)?;
-    migrate_review_notes_program(conn)?;
+    // Only run migrations for tables that still exist (pre-v3.1 databases)
+    if table_exists(conn, "links") {
+        migrate_links_program(conn)?;
+    }
+    if table_exists(conn, "attachments") {
+        migrate_attachments_program(conn)?;
+    }
+    if table_exists(conn, "review_notes") {
+        migrate_review_notes_program(conn)?;
+    }
     migrate_programs_flexible_type(conn)?;
     migrate_scheduled_instances_auto_completed(conn)?;
     migrate_scheduled_items_every_day(conn)?;
@@ -269,8 +289,8 @@ fn migrate_entries_action_item(conn: &rusqlite::Connection) -> Result<()> {
     // Test if action_item is already accepted
     if test_check_constraint_accepts(
         conn,
-        "INSERT INTO entries (entry_date, entry_type, work_type, title) \
-         VALUES ('2000-01-01', 'action_item', 'operational_rhythm', '__migration_test__')",
+        "INSERT INTO entries (entry_date, entry_type, title) \
+         VALUES ('2000-01-01', 'action_item', '__migration_test__')",
     ) {
         return Ok(());
     }
@@ -320,8 +340,8 @@ fn migrate_entries_program_update(conn: &rusqlite::Connection) -> Result<()> {
     // Test if program_update is already accepted
     if test_check_constraint_accepts(
         conn,
-        "INSERT INTO entries (entry_date, entry_type, work_type, title) \
-         VALUES ('2000-01-01', 'program_update', 'operational_rhythm', '__migration_test__')",
+        "INSERT INTO entries (entry_date, entry_type, title) \
+         VALUES ('2000-01-01', 'program_update', '__migration_test__')",
     ) {
         return Ok(());
     }
@@ -911,6 +931,17 @@ fn get_table_sql(conn: &rusqlite::Connection, table: &str) -> Option<String> {
     .ok()
 }
 
+/// Check if a table exists in the database.
+fn table_exists(conn: &rusqlite::Connection, table: &str) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        rusqlite::params![table],
+        |row| row.get::<_, i64>(0),
+    )
+    .unwrap_or(0)
+        > 0
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -941,7 +972,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "3.0.0");
+        assert_eq!(version, "3.1.0");
     }
 
     #[test]
@@ -960,7 +991,7 @@ mod tests {
                 |row| row.get(0),
             )
             .unwrap();
-        assert_eq!(version, "3.0.0");
+        assert_eq!(version, "3.1.0");
     }
 
     #[test]
@@ -1101,7 +1132,7 @@ mod tests {
     fn test_check_needs_migration_with_current_version() {
         let conn = setup_db();
         conn.execute(
-            "INSERT INTO settings (key, value) VALUES ('schema_version', '3')",
+            "INSERT INTO settings (key, value) VALUES ('schema_version', '4')",
             [],
         )
         .unwrap();
@@ -1112,7 +1143,7 @@ mod tests {
     fn test_check_needs_migration_with_semver() {
         let conn = setup_db();
         conn.execute(
-            "INSERT INTO settings (key, value) VALUES ('schema_version', '3.0.0')",
+            "INSERT INTO settings (key, value) VALUES ('schema_version', '3.1.0')",
             [],
         )
         .unwrap();

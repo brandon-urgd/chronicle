@@ -22,7 +22,7 @@ interface CaptureSheetProps {
 
 const CAPTURE_MODE_KEY = 'chronicle-capture-mode';
 const CAPTURE_CONTEXT_KEY = 'chronicle-capture-context';
-interface CaptureContext { lastProgramId: number | null; lastProjectId: number | null; lastTags: number[]; lastWorkType: string; }
+interface CaptureContext { lastProgramId: number | null; lastProjectId: number | null; lastTags: number[]; }
 function writeCaptureContext(c: CaptureContext) { try { localStorage.setItem(CAPTURE_CONTEXT_KEY, JSON.stringify(c)); } catch {} }
 
 function readCaptureMode(): CaptureMode {
@@ -98,7 +98,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
   const [batchMode, setBatchMode] = useState(false);
   const [batchText, setBatchText] = useState('');
   const [dueDate, setDueDate] = useState('');
-  const [dueTime, setDueTime] = useState('');
   const [frequency, setFrequency] = useState<string>('Weekly');
   const dueDateManuallySet = useRef(false);
   const [saving, setSaving] = useState(false);
@@ -210,7 +209,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
     if (v) { const r = resolveProgram(v); if (r) setSelectedProgramId(r); }
   }
 
-  function saveCtx() { writeCaptureContext({ lastProgramId: selectedProgramId, lastProjectId: projectId ? (projectId as number) : null, lastTags: [], lastWorkType: 'operational_rhythm' }); }
+  function saveCtx() { writeCaptureContext({ lastProgramId: selectedProgramId, lastProjectId: projectId ? (projectId as number) : null, lastTags: [] }); }
 
   const getDayCount = useCallback(async (): Promise<number> => {
     try { const today = new Date().toISOString().split('T')[0]; const r = await fetch(`/api/entries?date_start=${today}&date_end=${today}`); if (r.ok) { const d = await r.json(); return d.length + 1; } } catch {} return 1;
@@ -235,7 +234,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
         mode: 'one_time',
         item_class: 'task',
         template_entry_type: resolvedEntryType,
-        template_work_type: projectId ? 'project' : 'operational_rhythm',
         auto_complete: true,
         completion_details: {
           entry_type: resolvedEntryType,
@@ -257,8 +255,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
     try {
       const { entry_type } = inferEntryType(title);
       const resolvedEntryType = (entry_type === 'quick_capture' && (prefillProjectId || projectId)) ? 'project_update' : entry_type;
-      const body: Record<string, unknown> = { name: title.trim(), mode: 'one_time', item_class: 'task', template_entry_type: resolvedEntryType, template_work_type: 'operational_rhythm', due_date: dueDate || null, status: 'active' };
-      if (dueTime) body.time_of_day = dueTime;
+      const body: Record<string, unknown> = { name: title.trim(), mode: 'one_time', item_class: 'task', template_entry_type: resolvedEntryType, due_date: dueDate || null, status: 'active' };
       if (selectedProgramId) body.program_id = selectedProgramId;
       if (projectId) body.project_id = projectId;
       const r = await fetch('/api/scheduled-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -275,8 +272,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
       const { entry_type } = inferEntryType(title);
       const resolvedEntryType = (entry_type === 'quick_capture' && (prefillProjectId || projectId)) ? 'project_update' : entry_type;
       const fMap: Record<string, string> = { 'Every Day': 'every_day', 'Every Weekday': 'daily', 'Weekly': 'weekly', 'Biweekly': 'biweekly', 'Monthly': 'monthly', 'Quarterly': 'quarterly' };
-      const body: Record<string, unknown> = { name: title.trim(), mode: 'recurring', item_class: 'cadence', template_entry_type: resolvedEntryType, template_work_type: 'operational_rhythm', due_date: dueDate || null, status: 'active', recurrence_type: fMap[frequency] || 'weekly' };
-      if (dueTime) body.time_of_day = dueTime;
+      const body: Record<string, unknown> = { name: title.trim(), mode: 'recurring', item_class: 'cadence', template_entry_type: resolvedEntryType, due_date: dueDate || null, status: 'active', recurrence_type: fMap[frequency] || 'weekly' };
       if (selectedProgramId) body.program_id = selectedProgramId;
       if (projectId) body.project_id = projectId;
       if (requireAcknowledgment) body.require_acknowledgment = 1;
@@ -289,7 +285,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
     } catch { setSaveError('Network error. Please check your connection.'); } finally { setSaving(false); }
   }
 
-  function resetForm() { setTitle(''); setEntryStatus(captureMode === 'log' ? 'completed' : 'active'); setDueDate(''); setDueTime(''); setFrequency('Weekly'); setBatchMode(false); setBatchText(''); dueDateManuallySet.current = false; titleRef.current?.focus(); }
+  function resetForm() { setTitle(''); setEntryStatus(captureMode === 'log' ? 'completed' : 'active'); setDueDate(''); setFrequency('Weekly'); setBatchMode(false); setBatchText(''); dueDateManuallySet.current = false; titleRef.current?.focus(); }
 
   /* ── Batch save functions ── */
   async function saveBatchLogs() {
@@ -305,7 +301,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
           mode: 'one_time',
           item_class: 'task',
           template_entry_type: resolvedEntryType,
-          template_work_type: projectId ? 'project' : 'operational_rhythm',
           auto_complete: true,
           completion_details: {
             entry_type: resolvedEntryType,
@@ -331,8 +326,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
       for (const line of lines) {
         const { entry_type } = inferEntryType(line);
         const resolvedEntryType = (entry_type === 'quick_capture' && (prefillProjectId || projectId)) ? 'project_update' : entry_type;
-        const body: Record<string, unknown> = { name: line, mode: 'one_time', item_class: 'task', template_entry_type: resolvedEntryType, template_work_type: 'operational_rhythm', due_date: dueDate || null, status: 'active' };
-        if (dueTime) body.time_of_day = dueTime;
+        const body: Record<string, unknown> = { name: line, mode: 'one_time', item_class: 'task', template_entry_type: resolvedEntryType, due_date: dueDate || null, status: 'active' };
         if (selectedProgramId) body.program_id = selectedProgramId;
         if (projectId) body.project_id = projectId;
         await fetch('/api/scheduled-items', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
@@ -354,8 +348,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
       for (const line of lines) {
         const { entry_type } = inferEntryType(line);
         const resolvedEntryType = (entry_type === 'quick_capture' && (prefillProjectId || projectId)) ? 'project_update' : entry_type;
-        const body: Record<string, unknown> = { name: line, mode: 'recurring', item_class: 'cadence', template_entry_type: resolvedEntryType, template_work_type: 'operational_rhythm', due_date: dueDate || null, status: 'active', recurrence_type: fMap[frequency] || 'weekly' };
-        if (dueTime) body.time_of_day = dueTime;
+        const body: Record<string, unknown> = { name: line, mode: 'recurring', item_class: 'cadence', template_entry_type: resolvedEntryType, due_date: dueDate || null, status: 'active', recurrence_type: fMap[frequency] || 'weekly' };
         if (selectedProgramId) body.program_id = selectedProgramId;
         if (projectId) body.project_id = projectId;
         if (frequency === 'Weekly' || frequency === 'Biweekly') body.day_of_week = d.getDay() + 1; // US Traditional: 1=Sun, 2=Mon, ..., 7=Sat
@@ -572,10 +565,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
                   <label style={S.label}>Due date (optional)</label>
                   <input type="date" style={{ ...S.input, width: '160px' }} value={dueDate} onChange={e => { dueDateManuallySet.current = true; setDueDate(e.target.value); }} aria-label="Due date" />
                 </div>
-                <div>
-                  <label style={S.label}>Time (optional)</label>
-                  <input type="time" style={{ ...S.input, width: '130px' }} value={dueTime} onChange={e => setDueTime(e.target.value)} aria-label="Due time" />
-                </div>
               </div>
 
               {programs.length > 0 && (
@@ -615,10 +604,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
                 <div>
                   <label style={S.label}>Due date (optional, shared)</label>
                   <input type="date" style={{ ...S.input, width: '160px' }} value={dueDate} onChange={e => { dueDateManuallySet.current = true; setDueDate(e.target.value); }} aria-label="Due date" />
-                </div>
-                <div>
-                  <label style={S.label}>Time (optional)</label>
-                  <input type="time" style={{ ...S.input, width: '130px' }} value={dueTime} onChange={e => setDueTime(e.target.value)} aria-label="Due time" />
                 </div>
               </div>
 
@@ -679,10 +664,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
                   <label style={S.label}>Start date</label>
                   <input type="date" style={{ ...S.input, width: '160px' }} value={dueDate} onChange={e => { dueDateManuallySet.current = true; setDueDate(e.target.value); }} aria-label="Start date" />
                 </div>
-                <div>
-                  <label style={S.label}>Time (optional)</label>
-                  <input type="time" style={{ ...S.input, width: '130px' }} value={dueTime} onChange={e => setDueTime(e.target.value)} aria-label="Time" />
-                </div>
               </div>
 
               {/* Schedule preview */}
@@ -699,7 +680,7 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
                 else if (frequency === 'Quarterly') desc = 'Every quarter';
                 return desc ? (
                   <div style={{ marginBottom: '14px', padding: '6px 10px', borderRadius: '6px', background: 'var(--accent-primary)', color: 'var(--text-on-primary)', fontSize: '12px', fontWeight: 600 }}>
-                    📅 {desc}{dueTime ? ` at ${dueTime}` : ''} — starts {dueDate || 'today'}
+                    📅 {desc} — starts {dueDate || 'today'}
                   </div>
                 ) : null;
               })()}
@@ -773,10 +754,6 @@ export default function CaptureSheet({ prefillDate, prefillProgramId, prefillPro
                 <div>
                   <label style={S.label}>Start date</label>
                   <input type="date" style={{ ...S.input, width: '160px' }} value={dueDate} onChange={e => { dueDateManuallySet.current = true; setDueDate(e.target.value); }} aria-label="Start date" />
-                </div>
-                <div>
-                  <label style={S.label}>Time (optional)</label>
-                  <input type="time" style={{ ...S.input, width: '130px' }} value={dueTime} onChange={e => setDueTime(e.target.value)} aria-label="Time" />
                 </div>
               </div>
 

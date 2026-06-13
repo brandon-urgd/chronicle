@@ -48,23 +48,11 @@ pub struct ScheduledItemResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub day_of_month: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub month_of_year: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub time_of_day: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub day_range_start: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub day_range_end: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub program_id: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub project_id: Option<i64>,
     pub template_entry_type: String,
-    pub template_work_type: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub template_tags: Option<String>,
     pub template_visibility: String,
-    pub quick_complete: i64,
     pub status: String,
     pub sort_order: i64,
     pub item_class: String,
@@ -106,27 +94,13 @@ pub struct CreateScheduledItem {
     #[serde(default)]
     pub day_of_month: Option<i64>,
     #[serde(default)]
-    pub month_of_year: Option<i64>,
-    #[serde(default)]
-    pub time_of_day: Option<String>,
-    #[serde(default)]
-    pub day_range_start: Option<i64>,
-    #[serde(default)]
-    pub day_range_end: Option<i64>,
-    #[serde(default)]
     pub program_id: Option<i64>,
     #[serde(default)]
     pub project_id: Option<i64>,
     #[serde(default = "default_template_entry_type")]
     pub template_entry_type: String,
-    #[serde(default = "default_template_work_type")]
-    pub template_work_type: String,
-    #[serde(default)]
-    pub template_tags: Option<String>,
     #[serde(default = "default_template_visibility")]
     pub template_visibility: String,
-    #[serde(default)]
-    pub quick_complete: i64,
     #[serde(default)]
     pub sort_order: i64,
     #[serde(default)]
@@ -146,10 +120,6 @@ pub struct CreateScheduledItem {
 pub struct CompletionDetails {
     #[serde(default)]
     pub description: Option<String>,
-    #[serde(default)]
-    pub impact: Option<String>,
-    #[serde(default)]
-    pub metrics: Option<String>,
     #[serde(default)]
     pub visibility: Option<String>,
     #[serde(default)]
@@ -176,27 +146,13 @@ pub struct UpdateScheduledItem {
     #[serde(default)]
     pub day_of_month: Option<i64>,
     #[serde(default)]
-    pub month_of_year: Option<i64>,
-    #[serde(default)]
-    pub time_of_day: Option<String>,
-    #[serde(default)]
-    pub day_range_start: Option<i64>,
-    #[serde(default)]
-    pub day_range_end: Option<i64>,
-    #[serde(default)]
     pub program_id: Option<i64>,
     #[serde(default)]
     pub project_id: Option<i64>,
     #[serde(default)]
     pub template_entry_type: Option<String>,
     #[serde(default)]
-    pub template_work_type: Option<String>,
-    #[serde(default)]
-    pub template_tags: Option<String>,
-    #[serde(default)]
     pub template_visibility: Option<String>,
-    #[serde(default)]
-    pub quick_complete: Option<i64>,
     #[serde(default)]
     pub status: Option<String>,
     #[serde(default)]
@@ -219,10 +175,6 @@ fn default_template_entry_type() -> String {
     "operational_rhythm".to_string()
 }
 
-fn default_template_work_type() -> String {
-    "operational_rhythm".to_string()
-}
-
 fn default_template_visibility() -> String {
     "shareable".to_string()
 }
@@ -238,9 +190,7 @@ mod tests {
         assert_eq!(item.name, "Daily standup");
         assert_eq!(item.mode, "one_time");
         assert_eq!(item.template_entry_type, "operational_rhythm");
-        assert_eq!(item.template_work_type, "operational_rhythm");
         assert_eq!(item.template_visibility, "shareable");
-        assert_eq!(item.quick_complete, 0);
         assert_eq!(item.sort_order, 0);
         assert_eq!(item.require_acknowledgment, 0);
         assert!(item.description.is_none());
@@ -248,13 +198,8 @@ mod tests {
         assert!(item.recurrence_type.is_none());
         assert!(item.day_of_week.is_none());
         assert!(item.day_of_month.is_none());
-        assert!(item.month_of_year.is_none());
-        assert!(item.time_of_day.is_none());
-        assert!(item.day_range_start.is_none());
-        assert!(item.day_range_end.is_none());
         assert!(item.program_id.is_none());
         assert!(item.project_id.is_none());
-        assert!(item.template_tags.is_none());
         assert!(item.item_class.is_none());
     }
 
@@ -268,17 +213,10 @@ mod tests {
             "recurrence_type": "weekly",
             "day_of_week": 2,
             "day_of_month": null,
-            "month_of_year": null,
-            "time_of_day": "09:00",
-            "day_range_start": 2,
-            "day_range_end": 6,
             "program_id": 3,
             "project_id": 5,
             "template_entry_type": "project_update",
-            "template_work_type": "project",
-            "template_tags": "weekly,report",
             "template_visibility": "personal",
-            "quick_complete": 1,
             "sort_order": 10,
             "item_class": "cadence",
             "require_acknowledgment": 1
@@ -291,17 +229,10 @@ mod tests {
         assert_eq!(item.recurrence_type, Some("weekly".to_string()));
         assert_eq!(item.day_of_week, Some(2));
         assert!(item.day_of_month.is_none());
-        assert!(item.month_of_year.is_none());
-        assert_eq!(item.time_of_day, Some("09:00".to_string()));
-        assert_eq!(item.day_range_start, Some(2));
-        assert_eq!(item.day_range_end, Some(6));
         assert_eq!(item.program_id, Some(3));
         assert_eq!(item.project_id, Some(5));
         assert_eq!(item.template_entry_type, "project_update");
-        assert_eq!(item.template_work_type, "project");
-        assert_eq!(item.template_tags, Some("weekly,report".to_string()));
         assert_eq!(item.template_visibility, "personal");
-        assert_eq!(item.quick_complete, 1);
         assert_eq!(item.sort_order, 10);
         assert_eq!(item.item_class, Some("cadence".to_string()));
         assert_eq!(item.require_acknowledgment, 1);
@@ -324,11 +255,8 @@ mod tests {
         assert!(update.recurrence_type.is_none());
         assert!(update.day_of_week.is_none());
         assert!(update.day_of_month.is_none());
-        assert!(update.month_of_year.is_none());
-        assert!(update.time_of_day.is_none());
         assert!(update.program_id.is_none());
         assert!(update.project_id.is_none());
-        assert!(update.quick_complete.is_none());
         assert!(update.sort_order.is_none());
         assert!(update.item_class.is_none());
         assert!(update.require_acknowledgment.is_none());
@@ -347,24 +275,17 @@ mod tests {
             recurrence_type: Some("daily".to_string()),
             day_of_week: None,
             day_of_month: None,
-            month_of_year: None,
-            time_of_day: Some("09:00".to_string()),
-            day_range_start: Some(2),
-            day_range_end: Some(6),
             program_id: Some(3),
             project_id: None,
             template_entry_type: "operational_rhythm".to_string(),
-            template_work_type: "operational_rhythm".to_string(),
-            template_tags: None,
             template_visibility: "shareable".to_string(),
-            quick_complete: 1,
             status: "active".to_string(),
             sort_order: 0,
             item_class: "cadence".to_string(),
             show_on_today: 1,
             require_acknowledgment: 0,
             instances: vec![],
-            program_name: Some("My Program".to_string()),
+            program_name: Some("ACO AI".to_string()),
             project_name: None,
         };
 
@@ -373,12 +294,8 @@ mod tests {
         assert_eq!(json["name"], "Daily standup");
         assert_eq!(json["mode"], "recurring");
         assert_eq!(json["recurrence_type"], "daily");
-        assert_eq!(json["time_of_day"], "09:00");
-        assert_eq!(json["day_range_start"], 2);
-        assert_eq!(json["day_range_end"], 6);
         assert_eq!(json["program_id"], 3);
-        assert_eq!(json["program_name"], "My Program");
-        assert_eq!(json["quick_complete"], 1);
+        assert_eq!(json["program_name"], "ACO AI");
         assert_eq!(json["status"], "active");
         assert_eq!(json["item_class"], "cadence");
         assert_eq!(json["show_on_today"], 1);
@@ -387,9 +304,7 @@ mod tests {
         assert!(json.get("description").is_none());
         assert!(json.get("day_of_week").is_none());
         assert!(json.get("day_of_month").is_none());
-        assert!(json.get("month_of_year").is_none());
         assert!(json.get("project_id").is_none());
-        assert!(json.get("template_tags").is_none());
         assert!(json.get("project_name").is_none());
         // Required fields always present
         assert!(json.get("instances").is_some());
@@ -408,17 +323,10 @@ mod tests {
             recurrence_type: Some("monthly".to_string()),
             day_of_week: None,
             day_of_month: Some(15),
-            month_of_year: None,
-            time_of_day: None,
-            day_range_start: None,
-            day_range_end: None,
             program_id: Some(3),
             project_id: Some(7),
             template_entry_type: "operational_rhythm".to_string(),
-            template_work_type: "operational_rhythm".to_string(),
-            template_tags: Some("review,monthly".to_string()),
             template_visibility: "shareable".to_string(),
-            quick_complete: 0,
             status: "active".to_string(),
             sort_order: 5,
             item_class: "cadence".to_string(),
@@ -450,16 +358,15 @@ mod tests {
                     entry_id: None,
                 },
             ],
-            program_name: Some("My Program".to_string()),
+            program_name: Some("ACO AI".to_string()),
             project_name: Some("Chronicle Rewrite".to_string()),
         };
 
         let json = serde_json::to_value(&response).unwrap();
         assert_eq!(json["id"], 5);
         assert_eq!(json["day_of_month"], 15);
-        assert_eq!(json["template_tags"], "review,monthly");
         assert_eq!(json["require_acknowledgment"], 1);
-        assert_eq!(json["program_name"], "My Program");
+        assert_eq!(json["program_name"], "ACO AI");
         assert_eq!(json["project_name"], "Chronicle Rewrite");
 
         // Verify instances

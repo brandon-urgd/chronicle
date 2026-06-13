@@ -21,10 +21,8 @@ interface ValidationSummary {
   projects_count: number;
   scheduled_items_count: number;
   scheduled_instances_count: number;
-  lessons_count: number;
   tags_count: number;
   tags: string[];
-  attachments_count: number;
   report_presets_count: number;
   user_name: string | null;
   user_role: string | null;
@@ -513,14 +511,7 @@ export default function RestoreFlow({ mode, onBack, onStartFresh, onComplete }: 
                 <span style={summaryLabelStyle}>Scheduled Items</span>
                 <span style={summaryValueStyle} data-testid="preview-scheduled-count">{s.scheduled_items_count}</span>
               </div>
-              <div style={summaryRowStyle}>
-                <span style={summaryLabelStyle}>Lessons Learned</span>
-                <span style={summaryValueStyle} data-testid="preview-lessons-count">{s.lessons_count}</span>
-              </div>
-              <div style={summaryRowStyle}>
-                <span style={summaryLabelStyle}>Attachments</span>
-                <span style={summaryValueStyle} data-testid="preview-attachments-count">{s.attachments_count}</span>
-              </div>
+
               {s.backup_version && (
                 <div style={{ ...summaryRowStyle, borderBottom: 'none' }}>
                   <span style={summaryLabelStyle}>Backup Version</span>

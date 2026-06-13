@@ -2,7 +2,7 @@
 Chronicle Read-Only MCP Server
 ================================
 A read-only Model Context Protocol server for the Chronicle professional
-narrative database. Designed for AI assistant integration via MCP.
+narrative database. Designed for AI assistant integration (Amazon Quick, etc.)
 — provides rich query access with zero write capability.
 
 All tools are SELECT-only. No mutations, no deletions, no side effects.

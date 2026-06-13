@@ -65,7 +65,7 @@ def _row_to_dict(row: sqlite3.Row | None) -> dict | None:
     return dict(row) if row else None
 
 
-def _now() -> str:
+def _now():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
 
@@ -77,11 +77,11 @@ def _now() -> str:
 def list_projects(
     program_id: int | None = None,
     status: str | None = None,
-) -> str:
+):
     """List projects, optionally filtered by program or status.
 
     Args:
-        program_id: Filter by program ID
+        program_id: Filter by program ID (e.g. 3 = ACO AI)
         status: Filter by status (planning, active, completed, paused)
     """
     conn = _get_conn()
@@ -100,7 +100,7 @@ def list_projects(
 
 
 @mcp.tool()
-def get_project(project_id: int) -> str:
+def get_project(project_id: int):
     """Get full project detail including progress logs and entries.
 
     Args:
@@ -133,7 +133,7 @@ def create_project(
     target_end_date: str | None = None,
     goal_id: int | None = None,
     program_id: int | None = None,
-) -> str:
+):
     """Create a new project.
 
     Args:
@@ -158,7 +158,7 @@ def create_project(
 
 
 @mcp.tool()
-def update_project(project_id: int, **kwargs: Any) -> str:
+def update_project(project_id: int, **kwargs: Any):
     """Update any field on a project.
 
     Args:
@@ -187,7 +187,7 @@ def update_project(project_id: int, **kwargs: Any) -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def list_goals(program_id: int | None = None, status: str | None = None) -> str:
+def list_goals(program_id: int | None = None, status: str | None = None):
     """List goals, optionally filtered by program or status.
 
     Args:
@@ -210,7 +210,7 @@ def list_goals(program_id: int | None = None, status: str | None = None) -> str:
 
 
 @mcp.tool()
-def get_goal(goal_id: int) -> str:
+def get_goal(goal_id: int):
     """Get full goal detail including SMART fields and progress logs.
 
     Args:
@@ -232,7 +232,7 @@ def get_goal(goal_id: int) -> str:
 
 
 @mcp.tool()
-def update_goal(goal_id: int, **kwargs: Any) -> str:
+def update_goal(goal_id: int, **kwargs: Any):
     """Update any field on a goal.
 
     Args:
@@ -271,7 +271,7 @@ def create_goal(
     target_date: str | None = None,
     is_accomplishment: int = 0,
     program_id: int | None = None,
-) -> str:
+):
     """Create a new goal with SMART fields.
 
     Args:
@@ -311,16 +311,14 @@ def create_and_complete_task(
     title: str,
     entry_date: str | None = None,
     entry_type: str = "quick_capture",
-    work_type: str = "project",
     description: str | None = None,
-    impact: str | None = None,
     project_id: int | None = None,
     program_id: int | None = None,
     status: str = "completed",
     visibility: str = "shareable",
     is_accomplishment: int = 0,
     is_weekly_highlight: int = 0,
-) -> str:
+):
     """Create a task and immediately complete it, producing an entry in Timeline.
 
     This is the v3.0 unified way to log completed work. Every entry in Chronicle
@@ -330,9 +328,7 @@ def create_and_complete_task(
         title: Entry title
         entry_date: Date (YYYY-MM-DD), defaults to today
         entry_type: quick_capture, project_update, operational_rhythm, development, recognition, decision, milestone, action_item, program_update
-        work_type: project or operational_rhythm
         description: Detailed description
-        impact: Impact statement
         project_id: Link to a project
         program_id: Link to a program
         status: in_progress, completed, ongoing, paused
@@ -354,21 +350,21 @@ def create_and_complete_task(
     # 1. Create the scheduled_item (task)
     cursor = conn.execute(
         """INSERT INTO scheduled_items (created_at, updated_at, name, description, mode, due_date,
-           program_id, project_id, template_entry_type, template_work_type, template_visibility,
+           program_id, project_id, template_entry_type, template_visibility,
            status, item_class, show_on_today)
-        VALUES (?,?,?,?,'one_time',?,?,?,?,?,?,'completed','task',1)""",
+        VALUES (?,?,?,?,'one_time',?,?,?,?,?,'completed','task',1)""",
         (now, now, title, description, date, effective_program_id, project_id,
-         entry_type, work_type, visibility),
+         entry_type, visibility),
     )
     task_id = cursor.lastrowid
 
     # 2. Create the entry linked to the task
     cursor = conn.execute(
-        """INSERT INTO entries (created_at, updated_at, entry_date, entry_type, work_type, title,
-           description, impact, project_id, program_id, status, visibility,
-           is_accomplishment, is_lesson_learned, is_weekly_highlight, scheduled_item_id)
-        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,0,?,?)""",
-        (now, now, date, entry_type, work_type, title, description, impact,
+        """INSERT INTO entries (created_at, updated_at, entry_date, entry_type, title,
+           description, project_id, program_id, status, visibility,
+           is_accomplishment, is_weekly_highlight, scheduled_item_id)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (now, now, date, entry_type, title, description,
          project_id, effective_program_id, status, visibility, is_accomplishment,
          is_weekly_highlight, task_id),
     )
@@ -396,7 +392,7 @@ def search_entries(
     entry_type: str | None = None,
     starred_only: bool = False,
     limit: int = 50,
-) -> str:
+):
     """Search entries with flexible filters.
 
     Args:
@@ -439,17 +435,17 @@ def search_entries(
 
 
 @mcp.tool()
-def update_entry(entry_id: int, **kwargs: Any) -> str:
+def update_entry(entry_id: int, **kwargs: Any):
     """Update any field on an entry.
 
     Args:
         entry_id: The entry ID
-        **kwargs: Fields to update (title, description, impact, entry_date, entry_type, work_type, project_id, program_id, status, visibility, is_accomplishment, is_weekly_highlight, is_pinned, outcome)
+        **kwargs: Fields to update (title, description, entry_date, entry_type, project_id, program_id, status, visibility, is_accomplishment, is_weekly_highlight, is_pinned)
     """
     # MCP framework may pass fields nested inside a 'kwargs' key — unpack if so
     if "kwargs" in kwargs and isinstance(kwargs["kwargs"], dict):
         kwargs = kwargs["kwargs"]
-    allowed = {"title", "description", "impact", "entry_date", "entry_type", "work_type", "project_id", "program_id", "status", "visibility", "is_accomplishment", "is_weekly_highlight", "is_lesson_learned", "is_pinned", "outcome", "metrics"}
+    allowed = {"title", "description", "entry_date", "entry_type", "project_id", "program_id", "status", "visibility", "is_accomplishment", "is_weekly_highlight", "is_pinned"}
     updates = {k: v for k, v in kwargs.items() if k in allowed and v is not None}
     if not updates:
         return json.dumps({"error": "No valid fields to update"})
@@ -463,12 +459,30 @@ def update_entry(entry_id: int, **kwargs: Any) -> str:
     return json.dumps({"id": entry_id, "updated_fields": list(updates.keys())})
 
 
+@mcp.tool()
+def delete_entry(entry_id: int):
+    """Permanently delete an entry.
+
+    Args:
+        entry_id: The entry ID to delete
+    """
+    conn = _get_conn()
+    row = conn.execute("SELECT id FROM entries WHERE id = ?", (entry_id,)).fetchone()
+    if not row:
+        conn.close()
+        return json.dumps({"error": f"Entry {entry_id} not found"})
+    conn.execute("DELETE FROM entries WHERE id = ?", (entry_id,))
+    conn.commit()
+    conn.close()
+    return json.dumps({"id": entry_id, "status": "deleted"})
+
+
 # ---------------------------------------------------------------------------
 # PROGRESS LOGS
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def add_goal_progress(goal_id: int, note: str, status_at_time: str = "on_track") -> str:
+def add_goal_progress(goal_id: int, note: str, status_at_time: str = "on_track"):
     """Add a progress log entry to a goal.
 
     Args:
@@ -488,7 +502,7 @@ def add_goal_progress(goal_id: int, note: str, status_at_time: str = "on_track")
 
 
 @mcp.tool()
-def add_project_progress(project_id: int, note: str, status_at_time: str = "on_track") -> str:
+def add_project_progress(project_id: int, note: str, status_at_time: str = "on_track"):
     """Add a progress log entry to a project.
 
     Args:
@@ -508,7 +522,7 @@ def add_project_progress(project_id: int, note: str, status_at_time: str = "on_t
 
 
 @mcp.tool()
-def delete_progress_log(log_type: str, log_id: int) -> str:
+def delete_progress_log(log_type: str, log_id: int):
     """Delete a progress log entry.
 
     Args:
@@ -534,7 +548,7 @@ def create_task(
     due_date: str | None = None,
     project_id: int | None = None,
     program_id: int | None = None,
-) -> str:
+):
     """Create a one-time task (scheduled item with item_class='task').
 
     Args:
@@ -571,12 +585,12 @@ def create_task(
 
 
 @mcp.tool()
-def update_task(task_id: int, **kwargs: Any) -> str:
+def update_task(task_id: int, **kwargs: Any):
     """Update any field on a scheduled item (task or cadence).
 
     Args:
         task_id: The scheduled item ID
-        **kwargs: Fields to update (name, description, due_date, status, project_id, program_id, show_on_today)
+        **kwargs: Fields to update (name, description, due_date, status, project_id, program_id, show_on_today, sort_order)
     """
     # MCP framework may pass fields nested inside a 'kwargs' key — unpack if so
     if "kwargs" in kwargs and isinstance(kwargs["kwargs"], dict):
@@ -619,7 +633,7 @@ def list_tasks(
     program_id: int | None = None,
     project_id: int | None = None,
     due_before: str | None = None,
-) -> str:
+):
     """List scheduled items (tasks and cadences).
 
     Args:
@@ -655,7 +669,7 @@ def list_tasks(
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def list_programs() -> str:
+def list_programs():
     """List all programs with basic info."""
     conn = _get_conn()
     rows = conn.execute("SELECT * FROM programs ORDER BY sort_order, id").fetchall()
@@ -668,7 +682,7 @@ def list_programs() -> str:
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def create_note(text: str) -> str:
+def create_note(text: str):
     """Create a prep note for 1:1 topics, follow-up reminders, or communication prompts.
 
     Args:
@@ -689,7 +703,7 @@ def create_note(text: str) -> str:
 
 
 @mcp.tool()
-def list_notes() -> str:
+def list_notes():
     """List all active (non-dismissed) prep notes, ordered by newest first."""
     conn = _get_conn()
     rows = conn.execute(
@@ -700,7 +714,7 @@ def list_notes() -> str:
 
 
 @mcp.tool()
-def dismiss_note(note_id: int) -> str:
+def dismiss_note(note_id: int):
     """Dismiss a prep note by ID (soft-delete — sets dismissed_at timestamp).
 
     Args:
@@ -731,7 +745,7 @@ def create_report_draft(
     preset_id: int | None = None,
     date_range_start: str | None = None,
     date_range_end: str | None = None,
-) -> str:
+):
     """Create a new report draft.
 
     Args:
@@ -759,7 +773,7 @@ def create_report_draft(
 
 
 @mcp.tool()
-def list_report_drafts() -> str:
+def list_report_drafts():
     """List all report drafts, ordered by most recently updated first."""
     conn = _get_conn()
     rows = conn.execute(
@@ -775,7 +789,7 @@ def update_report_draft(
     title: str | None = None,
     content: str | None = None,
     status: str | None = None,
-) -> str:
+):
     """Update a report draft's title, content, or status.
 
     Args:
@@ -813,7 +827,7 @@ def update_report_draft(
 
 
 @mcp.tool()
-def delete_report_draft(draft_id: int) -> str:
+def delete_report_draft(draft_id: int):
     """Permanently delete a report draft.
 
     Args:
@@ -831,11 +845,102 @@ def delete_report_draft(draft_id: int) -> str:
 
 
 # ---------------------------------------------------------------------------
+# SCHEDULED ITEM INSTANCES (cadence/task instances)
+# ---------------------------------------------------------------------------
+
+@mcp.tool()
+def list_scheduled_item_instances(
+    scheduled_item_id: int,
+    status: str | None = None,
+    limit: int = 10,
+):
+    """List instances of a scheduled item (cadence or task).
+
+    Cadence instances live in the scheduled_item_instances table — these are
+    what shows up in the Chronicle UI calendar/today views (e.g., the next
+    Manager 1:1 or the next Asana Updates). They are distinct from entries.
+
+    Args:
+        scheduled_item_id: The cadence/task ID (e.g., 87 for 'Asana Updates', 68 for 'Manager 1:1')
+        status: Optional filter ('pending', 'completed', 'skipped', 'auto_completed')
+        limit: Max results (default 10)
+    """
+    conn = _get_conn()
+    sql = "SELECT * FROM scheduled_item_instances WHERE scheduled_item_id = ?"
+    params: list[Any] = [scheduled_item_id]
+    if status:
+        sql += " AND status = ?"
+        params.append(status)
+    sql += " ORDER BY due_date DESC LIMIT ?"
+    params.append(limit)
+    rows = conn.execute(sql, params).fetchall()
+    conn.close()
+    return json.dumps(_rows_to_dicts(rows), indent=2)
+
+
+@mcp.tool()
+def update_scheduled_item_instance(
+    instance_id: int,
+    notes: str | None = None,
+    status: str | None = None,
+    due_date: str | None = None,
+    skip_reason: str | None = None,
+):
+    """Update a specific instance of a scheduled item.
+
+    Use this to push content into the upcoming instance of a recurring cadence
+    (e.g., the Monday Asana Updates entry, or the Friday Manager 1:1) without
+    creating a new entry. The notes field is what shows up in the UI for that
+    instance.
+
+    Args:
+        instance_id: The scheduled_item_instances.id
+        notes: Notes/description text for the instance (the body the user sees)
+        status: 'pending', 'completed', 'skipped', or 'auto_completed'
+        due_date: New due date (YYYY-MM-DD)
+        skip_reason: Reason if marking as skipped
+    """
+    conn = _get_conn()
+    row = conn.execute(
+        "SELECT id FROM scheduled_item_instances WHERE id = ?", (instance_id,)
+    ).fetchone()
+    if not row:
+        conn.close()
+        return json.dumps({"error": f"Scheduled item instance {instance_id} not found"})
+
+    updates: dict[str, Any] = {}
+    if notes is not None:
+        updates["notes"] = notes
+    if status is not None:
+        if status not in ("pending", "completed", "skipped", "auto_completed"):
+            conn.close()
+            return json.dumps({"error": f"Invalid status: {status}"})
+        updates["status"] = status
+        if status in ("completed", "skipped", "auto_completed"):
+            updates["resolved_at"] = _now()
+    if due_date is not None:
+        updates["due_date"] = due_date
+    if skip_reason is not None:
+        updates["skip_reason"] = skip_reason
+
+    if not updates:
+        conn.close()
+        return json.dumps({"error": "No fields to update"})
+
+    set_clause = ", ".join(f"{k} = ?" for k in updates)
+    params = list(updates.values()) + [instance_id]
+    conn.execute(f"UPDATE scheduled_item_instances SET {set_clause} WHERE id = ?", params)
+    conn.commit()
+    conn.close()
+    return json.dumps({"id": instance_id, "updated_fields": list(updates.keys())})
+
+
+# ---------------------------------------------------------------------------
 # RAW QUERY (read-only)
 # ---------------------------------------------------------------------------
 
 @mcp.tool()
-def query(sql: str) -> str:
+def query(sql: str):
     """Execute a read-only SQL query against the Chronicle database.
     Only SELECT statements are allowed.
 

@@ -2,20 +2,21 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { useInlineTask } from '../hooks/useInlineTask';
 import { useDirtyClose } from '../hooks/useDirtyClose';
 import { isoWeekNumber, daysBetween } from '../utils/dateUtils';
-import { cardStyle, TYPE_ICON } from '../styles/sharedStyles';
+import { TYPE_ICON } from '../styles/sharedStyles';
 import ActivityPulse from '../components/ActivityPulse';
 import PrepNotes from '../components/PrepNotes';
 import ReportReadyCard from '../components/ReportReadyCard';
 import DiscardConfirmDialog from '../components/DiscardConfirmDialog';
 
+
 /* ── Types ── */
 interface Tag { id: number; name: string; created_at: string; }
 interface EntryResponse {
   id: number; created_at: string; updated_at: string; entry_date: string;
-  entry_type: string; work_type: string; title: string; description: string | null;
-  impact: string | null; metrics: string | null; project_id: number | null;
+  entry_type: string; title: string; description: string | null;
+  project_id: number | null;
   project_name: string | null; status: string; visibility: string;
-  is_accomplishment: number; is_lesson_learned: number; is_weekly_highlight: number;
+  is_accomplishment: number; is_weekly_highlight: number;
   tags: Tag[]; links: unknown[];
 }
 
@@ -242,6 +243,8 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
   });
   const [programColors, setProgramColors] = useState<Record<string, string>>({});
 
+
+
   // Persist collapse states (Task 17 / Req 11)
   useEffect(() => {
     try { localStorage.setItem('chronicle-dashboard-upcoming-collapsed', String(upcomingCollapsed)); } catch { /* ignore */ }
@@ -293,12 +296,11 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
 
   const fetchUpcoming = useCallback(async () => {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      const nextWeek = new Date();
-      nextWeek.setDate(nextWeek.getDate() + 7);
-      const startStr = tomorrow.toISOString().split('T')[0];
-      const endStr = nextWeek.toISOString().split('T')[0];
+      const today = new Date();
+      const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
+      const nextWeek = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 7);
+      const startStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth() + 1).padStart(2, '0')}-${String(tomorrow.getDate()).padStart(2, '0')}`;
+      const endStr = `${nextWeek.getFullYear()}-${String(nextWeek.getMonth() + 1).padStart(2, '0')}-${String(nextWeek.getDate()).padStart(2, '0')}`;
       const res = await fetch(`/api/scheduled-items/instances?status=pending&due_date_start=${startStr}&due_date_end=${endStr}`);
       if (res.ok) {
         const instances = await res.json();
@@ -367,6 +369,7 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
       }
     } catch { /* ignore */ }
   }, []);
+
 
   const handleModalSave = useCallback(async () => {
     if (!taskModal || taskModalBusy) return;
@@ -550,6 +553,11 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
     finally { setWorkCompletingIds(prev => { const next = new Set(prev); next.delete(itemId); return next; }); }
   };
 
+
+
+
+
+
   if (loading) return <p style={{ color: 'var(--text-muted)' }}>Loading…</p>;
   if (!data) return <p style={{ color: 'var(--accent-danger)' }}>Failed to load.</p>;
 
@@ -718,7 +726,7 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
   );
 
   return (
-    <div className="dashboard-container" style={{ maxWidth: '1100px' }}>
+    <div className="dashboard-container" style={{ maxWidth: '1100px', overflowY: 'auto' }}>
 
       {/* ═══════════════════════════════════════════════════════════════════
           HEADER: Week/Date line — sticky, compact (≤ 72px).
@@ -766,7 +774,7 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
           ═══════════════════════════════════════════════════════════════════ */}
       <div className="dashboard-paired-row">
         {/* LEFT: Today's Tasks */}
-        <div className="dashboard-paired-panel" style={{ ...cardStyle, borderLeft: '3px solid var(--accent-primary)' }}>
+        <div className="dashboard-paired-panel card" style={{ borderLeft: '3px solid var(--accent-primary)' }}>
           <h3 className="dashboard-section-header" style={{ background: 'var(--card-bg)' }}>
             Today's Tasks
             <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 400 }}>
@@ -778,7 +786,7 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
         </div>
 
         {/* RIGHT: Prep Notes */}
-        <div className="dashboard-paired-panel" style={{ ...cardStyle, borderLeft: '3px solid var(--accent-secondary)' }}>
+        <div className="dashboard-paired-panel card" style={{ borderLeft: '3px solid var(--accent-secondary)' }}>
           <PrepNotes initialNotes={data.prep_notes} onNotesChange={refreshAll} />
         </div>
       </div>
@@ -916,13 +924,13 @@ export default function DashboardView({ onNavigateToQuickCapture: _onNavigateToQ
           ═══════════════════════════════════════════════════════════════════ */}
       {taskModal && (
         <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+          style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={handleTaskModalBackdrop}
           role="dialog" aria-modal="true" aria-label="Edit task"
         >
           <div
             className={taskModalShaking ? 'modal-shake' : undefined}
-            style={{ background: 'var(--card-bg)', borderRadius: '12px', padding: '32px', width: '100%', maxWidth: '580px', border: '1px solid var(--card-border)', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}
+            style={{ background: 'var(--card-bg)', borderRadius: '12px', padding: '32px', width: '100%', maxWidth: '580px', border: '1px solid var(--card-border)', boxShadow: 'var(--elevation-overlay)' }}
             onClick={e => e.stopPropagation()}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>

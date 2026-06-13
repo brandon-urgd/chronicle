@@ -1,6 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import EntryFormView from '../views/EntryFormView';
-import { type Attachment } from '../components/AttachmentsSection';
 import { readAppState, patchAppState } from '../utils/appState';
 import { isoWeekNumber, shiftWeek, shiftMonth, shiftQuarter, formatRangeLabel } from '../utils/dateUtils';
 import { cardStyle as sharedCardStyle } from '../styles/sharedStyles';
@@ -13,13 +12,13 @@ interface LinkItem { id: number; parent_type: string; parent_id: number; url: st
 interface ProgramBrief { id: number; name: string; status: string; color: string | null; }
 interface EntryResponse {
   id: number; created_at: string; updated_at: string; entry_date: string;
-  entry_type: string; work_type: string; title: string; description: string | null;
-  impact: string | null; metrics: string | null; project_id: number | null;
+  entry_type: string; title: string; description: string | null;
+  project_id: number | null;
   project_name: string | null; program_id: number | null; program_name: string | null;
   scheduled_item_id: number | null; status: string; visibility: string;
-  is_accomplishment: number; is_lesson_learned: number; is_weekly_highlight: number;
+  is_accomplishment: number; is_weekly_highlight: number;
   is_pinned?: number; outcome?: string | null;
-  tags: Tag[]; links: LinkItem[]; attachments: Attachment[];
+  tags: Tag[]; links: LinkItem[];
 }
 
 /* ── Scheduled item instance types (R4) ── */
@@ -728,8 +727,8 @@ export default function TimelineView({ focusEntryId, focusProjectId, focusDate, 
                 <div
                   key={entry.id}
                   id={`timeline-entry-${entry.id}`}
+                  className="card"
                   style={{
-                    ...card,
                     padding: isCompact ? '10px 14px' : '16px',
                     marginBottom: isCompact ? '6px' : '12px',
                     borderLeft: borderColor ? `3px solid ${borderColor}` : undefined,
@@ -835,7 +834,7 @@ export default function TimelineView({ focusEntryId, focusProjectId, focusDate, 
           ref={editOverlayRef}
           style={{
             position: 'fixed', inset: 0, zIndex: 200,
-            background: 'var(--modal-overlay)', backdropFilter: 'blur(4px)',
+            background: 'var(--modal-overlay)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
           }}
           onClick={handleEditBackdropClick}

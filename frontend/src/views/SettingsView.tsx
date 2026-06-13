@@ -393,16 +393,15 @@ export default function SettingsView() {
           >
             ×
           </button>
-          <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 600, color: 'var(--accent-primary)' }}>What's New in v3.0.0</h3>
+          <h3 style={{ margin: '0 0 10px', fontSize: '16px', fontWeight: 600, color: 'var(--accent-primary)' }}>What's New in v3.1.0</h3>
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--text-primary)', lineHeight: '1.8' }}>
-            <li><strong>Unified data model</strong> — tasks are the only input, entries are the output. Log mode creates-and-completes in one step.</li>
-            <li><strong>Time Distribution page</strong> — see where you spend your time by program and project, with trend comparison</li>
-            <li><strong>Dashboard view modes</strong> — toggle Upcoming between "By Date" (flat) and "By Program" (grouped)</li>
-            <li><strong>File attachments</strong> — upload, download, and delete files on entries and projects</li>
-            <li><strong>Timeline delete</strong> — remove entries directly from the edit form</li>
-            <li><strong>DB recovery</strong> — graceful recovery screen instead of crash on database errors</li>
-            <li><strong>Section persistence</strong> — Dashboard collapse states and Distribution preferences survive refresh</li>
-            <li><strong>Program inheritance</strong> — tasks and projects auto-inherit program from their parent</li>
+            <li><strong>Schema lean-out</strong> — streamlined to 14 tables, removed unused columns and dead features</li>
+            <li><strong>Squid Ink design system</strong> — cool-toned light mode + Warm Charcoal dark mode with elevation tokens</li>
+            <li><strong>Leaner entry types</strong> — 6 focused types: quick_capture, project_update, operational_rhythm, milestone, decision, recognition</li>
+            <li><strong>MCP v3.1 signatures</strong> — cleaner tool parameters, no dead fields in responses</li>
+            <li><strong>Report improvements</strong> — PDF export starts at the top, no "Other Work" heading when all entries are unassigned</li>
+            <li><strong>Auto-hide scrollbars</strong> — modern minimal scroll treatment throughout</li>
+            <li><strong>SMART fields collapsed</strong> — Portfolio goals show projects without SMART clutter by default</li>
           </ul>
         </div>
       )}
@@ -419,7 +418,7 @@ export default function SettingsView() {
           { key: 'user_name', label: 'Name', placeholder: 'Your full name' },
           { key: 'user_role', label: 'Role', placeholder: 'e.g. Program Manager' },
           { key: 'user_title', label: 'Title', placeholder: 'e.g. Sr. Program Manager' },
-          { key: 'user_org', label: 'Organization', placeholder: 'e.g. Engineering' },
+          { key: 'user_org', label: 'Organization', placeholder: 'e.g. ACO' },
           { key: 'manager_name', label: 'Manager Name', placeholder: "Your manager's name" },
         ].map(f => (
           <div key={f.key} style={fieldStyle}>
@@ -674,7 +673,7 @@ export default function SettingsView() {
 
       {/* ── Reset Step 1 ── */}
       {showResetConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={() => setShowResetConfirm(false)} role="dialog" aria-modal="true" aria-label="Reset confirmation">
           <div style={{ ...sectionStyle, maxWidth: '440px', textAlign: 'center' as const }} onClick={e => e.stopPropagation()}>
             <p style={{ color: 'var(--accent-danger)', fontWeight: 600, marginBottom: '12px' }}>Reset Application</p>
@@ -691,7 +690,7 @@ export default function SettingsView() {
 
       {/* ── Reset Step 2 ── */}
       {showResetTypeConfirm && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
+        <div style={{ position: 'fixed', inset: 0, background: 'var(--modal-overlay)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}
           onClick={() => { setShowResetTypeConfirm(false); setResetTypeInput(''); }} role="dialog" aria-modal="true" aria-label="Final reset confirmation">
           <div style={{ ...sectionStyle, maxWidth: '440px', textAlign: 'center' as const }} onClick={e => e.stopPropagation()}>
             <p style={{ color: 'var(--accent-danger)', fontWeight: 600, marginBottom: '12px' }}>Final Confirmation</p>

@@ -109,10 +109,9 @@ pub fn router(state: SharedState) -> Router {
 const SCHEDULED_ITEM_SELECT: &str = "\
     SELECT si.id, si.created_at, si.updated_at, si.name, si.description, \
            si.mode, si.due_date, si.recurrence_type, si.day_of_week, si.day_of_month, \
-           si.month_of_year, si.time_of_day, si.day_range_start, si.day_range_end, \
            si.program_id, si.project_id, \
-           si.template_entry_type, si.template_work_type, si.template_tags, \
-           si.template_visibility, si.quick_complete, si.status, si.sort_order, \
+           si.template_entry_type, \
+           si.template_visibility, si.status, si.sort_order, \
            si.item_class, si.show_on_today, si.require_acknowledgment, \
            prog.name, proj.name \
     FROM scheduled_items si \
@@ -159,13 +158,12 @@ async fn create_scheduled_item(
 
     let item_id = conn.query_row(
         "INSERT INTO scheduled_items (name, description, mode, due_date, \
-         recurrence_type, day_of_week, day_of_month, month_of_year, \
-         time_of_day, day_range_start, day_range_end, \
+         recurrence_type, day_of_week, day_of_month, \
          program_id, project_id, \
-         template_entry_type, template_work_type, template_tags, \
-         template_visibility, quick_complete, sort_order, item_class, \
+         template_entry_type, \
+         template_visibility, sort_order, item_class, \
          require_acknowledgment) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18, ?19, ?20, ?21) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14) \
          RETURNING id",
         rusqlite::params![
             body.name,
@@ -175,17 +173,10 @@ async fn create_scheduled_item(
             body.recurrence_type,
             body.day_of_week,
             body.day_of_month,
-            body.month_of_year,
-            body.time_of_day,
-            body.day_range_start,
-            body.day_range_end,
             effective_program_id,
             body.project_id,
             body.template_entry_type,
-            body.template_work_type,
-            body.template_tags,
             body.template_visibility,
-            body.quick_complete,
             body.sort_order,
             item_class,
             body.require_acknowledgment,
@@ -198,9 +189,9 @@ async fn create_scheduled_item(
         if let Some(ref due_date) = body.due_date {
             conn.execute(
                 "INSERT OR IGNORE INTO scheduled_item_instances \
-                 (scheduled_item_id, due_date, due_time, status) \
-                 VALUES (?1, ?2, ?3, 'pending')",
-                rusqlite::params![item_id, due_date, body.time_of_day],
+                 (scheduled_item_id, due_date, status) \
+                 VALUES (?1, ?2, 'pending')",
+                rusqlite::params![item_id, due_date],
             )?;
         }
     }
@@ -242,27 +233,20 @@ async fn create_scheduled_item(
             .unwrap_or(&body.template_visibility);
         let description = body.completion_details.as_ref()
             .and_then(|d| d.description.as_deref());
-        let impact = body.completion_details.as_ref()
-            .and_then(|d| d.impact.as_deref());
-        let metrics = body.completion_details.as_ref()
-            .and_then(|d| d.metrics.as_deref());
 
         // Create the entry
         let entry_id: i64 = conn.query_row(
-            "INSERT INTO entries (entry_date, entry_type, work_type, title, \
-             description, impact, metrics, project_id, status, visibility, \
-             is_accomplishment, is_lesson_learned, is_weekly_highlight, \
+            "INSERT INTO entries (entry_date, entry_type, title, \
+             description, project_id, status, visibility, \
+             is_accomplishment, is_weekly_highlight, \
              program_id, scheduled_item_id) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'completed', ?9, 0, 0, 0, ?10, ?11) \
+             VALUES (?1, ?2, ?3, ?4, ?5, 'completed', ?6, 0, 0, ?7, ?8) \
              RETURNING id",
             rusqlite::params![
                 entry_date,
                 effective_entry_type,
-                body.template_work_type,
                 body.name,
                 description,
-                impact,
-                metrics,
                 body.project_id,
                 visibility,
                 effective_program_id,
@@ -365,11 +349,11 @@ async fn update_scheduled_item(
     let conn = state.pool.get()?;
 
     // Verify item exists and get current state
-    let (old_due_date, old_mode, old_time): (Option<String>, String, Option<String>) = conn
+    let (old_due_date, old_mode): (Option<String>, String) = conn
         .query_row(
-            "SELECT due_date, mode, time_of_day FROM scheduled_items WHERE id = ?1",
+            "SELECT due_date, mode FROM scheduled_items WHERE id = ?1",
             rusqlite::params![id],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            |row| Ok((row.get(0)?, row.get(1)?)),
         )
         .map_err(|e| match e {
             rusqlite::Error::QueryReturnedNoRows => {
@@ -434,17 +418,10 @@ async fn update_scheduled_item(
     add_field!(body.recurrence_type, "recurrence_type");
     add_field_i64!(body.day_of_week, "day_of_week");
     add_field_i64!(body.day_of_month, "day_of_month");
-    add_field_i64!(body.month_of_year, "month_of_year");
-    add_field!(body.time_of_day, "time_of_day");
-    add_field_i64!(body.day_range_start, "day_range_start");
-    add_field_i64!(body.day_range_end, "day_range_end");
     add_fk_field!(body.program_id, "program_id");
     add_fk_field!(body.project_id, "project_id");
     add_field!(body.template_entry_type, "template_entry_type");
-    add_field!(body.template_work_type, "template_work_type");
-    add_field!(body.template_tags, "template_tags");
     add_field!(body.template_visibility, "template_visibility");
-    add_field_i64!(body.quick_complete, "quick_complete");
     add_field!(body.status, "status");
     add_field_i64!(body.sort_order, "sort_order");
     add_field!(body.item_class, "item_class");
@@ -466,23 +443,22 @@ async fn update_scheduled_item(
         // Sync pending instances when due_date changes on a one-time task
         let new_due_date = body.due_date.as_ref().or(old_due_date.as_ref());
         let updated_mode = body.mode.as_deref().unwrap_or(&old_mode);
-        let updated_time = body.time_of_day.as_ref().or(old_time.as_ref());
 
         if updated_mode == "one_time" {
             if let Some(due_date) = new_due_date {
                 // Update existing pending instances to the new date
                 conn.execute(
                     "UPDATE scheduled_item_instances \
-                     SET due_date = ?1, due_time = ?2 \
-                     WHERE scheduled_item_id = ?3 AND status = 'pending'",
-                    rusqlite::params![due_date, updated_time, id],
+                     SET due_date = ?1 \
+                     WHERE scheduled_item_id = ?2 AND status = 'pending'",
+                    rusqlite::params![due_date, id],
                 )?;
                 // If no pending instance existed, create one
                 conn.execute(
                     "INSERT OR IGNORE INTO scheduled_item_instances \
-                     (scheduled_item_id, due_date, due_time, status) \
-                     VALUES (?1, ?2, ?3, 'pending')",
-                    rusqlite::params![id, due_date, updated_time],
+                     (scheduled_item_id, due_date, status) \
+                     VALUES (?1, ?2, 'pending')",
+                    rusqlite::params![id, due_date],
                 )?;
             } else {
                 // Task has no due_date â†’ remove pending instances
@@ -542,8 +518,8 @@ async fn get_due_today(
 
     // Backfill: ensure one-time tasks with a due_date have their instance.
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO scheduled_item_instances (scheduled_item_id, due_date, due_time, status) \
-         SELECT id, due_date, time_of_day, 'pending' FROM scheduled_items \
+        "INSERT OR IGNORE INTO scheduled_item_instances (scheduled_item_id, due_date, status) \
+         SELECT id, due_date, 'pending' FROM scheduled_items \
          WHERE mode = 'one_time' AND status = 'active' AND due_date IS NOT NULL",
         [],
     );
@@ -554,8 +530,8 @@ async fn get_due_today(
     let mut stmt = conn.prepare(
         "SELECT sii.id, sii.scheduled_item_id, sii.due_date, sii.due_time, \
                 sii.status, sii.resolved_at, sii.notes, sii.skip_reason, sii.entry_id, \
-                si.name, si.program_id, prog.name, si.quick_complete, \
-                si.template_entry_type, si.template_work_type, si.project_id, \
+                si.name, si.program_id, prog.name, \
+                si.template_entry_type, si.project_id, \
                 si.item_class, si.recurrence_type, proj.name, si.require_acknowledgment \
          FROM scheduled_item_instances sii \
          JOIN scheduled_items si ON sii.scheduled_item_id = si.id \
@@ -576,14 +552,12 @@ async fn get_due_today(
             name: row.get(9)?,
             program_id: row.get(10)?,
             program_name: row.get(11)?,
-            quick_complete: row.get(12)?,
-            template_entry_type: row.get(13)?,
-            template_work_type: row.get(14)?,
-            project_id: row.get(15)?,
-            item_class: row.get(16)?,
-            recurrence_type: row.get(17)?,
-            project_name: row.get(18)?,
-            require_acknowledgment: row.get(19)?,
+            template_entry_type: row.get(12)?,
+            project_id: row.get(13)?,
+            item_class: row.get(14)?,
+            recurrence_type: row.get(15)?,
+            project_name: row.get(16)?,
+            require_acknowledgment: row.get(17)?,
         })
     })?;
 
@@ -601,9 +575,7 @@ async fn get_due_today(
             "name": r.name,
             "program_id": r.program_id,
             "program_name": r.program_name,
-            "quick_complete": r.quick_complete,
             "template_entry_type": r.template_entry_type,
-            "template_work_type": r.template_work_type,
             "project_id": r.project_id,
             "item_class": r.item_class,
             "recurrence_type": r.recurrence_type,
@@ -681,8 +653,8 @@ async fn list_instances(
     // Backfill: ensure one-time tasks with a due_date have their instance.
     // Covers tasks created before v2.5.1 that never got an instance row.
     let _ = conn.execute(
-        "INSERT OR IGNORE INTO scheduled_item_instances (scheduled_item_id, due_date, due_time, status) \
-         SELECT id, due_date, time_of_day, 'pending' FROM scheduled_items \
+        "INSERT OR IGNORE INTO scheduled_item_instances (scheduled_item_id, due_date, status) \
+         SELECT id, due_date, 'pending' FROM scheduled_items \
          WHERE mode = 'one_time' AND status = 'active' AND due_date IS NOT NULL",
         [],
     );
@@ -972,8 +944,8 @@ async fn complete_scheduled_item(
     let item = conn
         .query_row(
             "SELECT id, name, mode, program_id, project_id, \
-                    template_entry_type, template_work_type, template_tags, \
-                    template_visibility, quick_complete \
+                    template_entry_type, \
+                    template_visibility \
              FROM scheduled_items WHERE id = ?1",
             rusqlite::params![id],
             |row| {
@@ -984,10 +956,7 @@ async fn complete_scheduled_item(
                     program_id: row.get(3)?,
                     project_id: row.get(4)?,
                     template_entry_type: row.get(5)?,
-                    template_work_type: row.get(6)?,
-                    template_tags: row.get(7)?,
-                    template_visibility: row.get(8)?,
-                    quick_complete: row.get(9)?,
+                    template_visibility: row.get(6)?,
                 })
             },
         )
@@ -1049,20 +1018,17 @@ async fn complete_scheduled_item(
     let entry_description = body.description.as_deref().or(body.notes.as_deref());
 
     let entry_id: i64 = conn.query_row(
-        "INSERT INTO entries (entry_date, entry_type, work_type, title, \
-         description, impact, metrics, project_id, status, visibility, \
-         is_accomplishment, is_lesson_learned, is_weekly_highlight, \
+        "INSERT INTO entries (entry_date, entry_type, title, \
+         description, project_id, status, visibility, \
+         is_accomplishment, is_weekly_highlight, \
          program_id, scheduled_item_id) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, 'completed', ?9, 0, 0, 0, ?10, ?11) \
+         VALUES (?1, ?2, ?3, ?4, ?5, 'completed', ?6, 0, 0, ?7, ?8) \
          RETURNING id",
         rusqlite::params![
             entry_date,
             effective_entry_type,
-            item.template_work_type,
             item.name,
             entry_description,
-            body.impact,
-            body.metrics,
             item.project_id,
             entry_visibility,
             item.program_id,
@@ -1070,23 +1036,6 @@ async fn complete_scheduled_item(
         ],
         |row| row.get::<_, i64>(0),
     )?;
-
-    // Handle template_tags: parse comma-separated tag names, look up IDs, insert into entry_tags
-    if let Some(ref template_tags) = item.template_tags {
-        let tag_names: Vec<&str> = template_tags.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()).collect();
-        for tag_name in tag_names {
-            if let Ok(tag_id) = conn.query_row(
-                "SELECT id FROM tags WHERE name = ?1",
-                rusqlite::params![tag_name],
-                |row| row.get::<_, i64>(0),
-            ) {
-                conn.execute(
-                    "INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?1, ?2)",
-                    rusqlite::params![entry_id, tag_id],
-                )?;
-            }
-        }
-    }
 
     // 5. Mark instance as completed
     let mut occurrence: Option<serde_json::Value> = None;
@@ -1134,10 +1083,10 @@ async fn complete_scheduled_item(
     let entry = conn
         .query_row(
             "SELECT e.id, e.created_at, e.updated_at, e.entry_date, e.entry_type, \
-                    e.work_type, e.title, e.description, e.impact, e.metrics, \
+                    e.title, e.description, \
                     e.project_id, e.status, e.visibility, \
-                    e.is_accomplishment, e.is_lesson_learned, e.is_weekly_highlight, \
-                    e.is_pinned, e.outcome, e.program_id, e.scheduled_item_id \
+                    e.is_accomplishment, e.is_weekly_highlight, \
+                    e.is_pinned, e.program_id, e.scheduled_item_id \
              FROM entries e WHERE e.id = ?1",
             rusqlite::params![entry_id],
             |row| {
@@ -1147,21 +1096,16 @@ async fn complete_scheduled_item(
                     "updated_at": row.get::<_, String>(2)?,
                     "entry_date": row.get::<_, String>(3)?,
                     "entry_type": row.get::<_, String>(4)?,
-                    "work_type": row.get::<_, String>(5)?,
-                    "title": row.get::<_, String>(6)?,
-                    "description": row.get::<_, Option<String>>(7)?,
-                    "impact": row.get::<_, Option<String>>(8)?,
-                    "metrics": row.get::<_, Option<String>>(9)?,
-                    "project_id": row.get::<_, Option<i64>>(10)?,
-                    "status": row.get::<_, String>(11)?,
-                    "visibility": row.get::<_, String>(12)?,
-                    "is_accomplishment": row.get::<_, i64>(13)?,
-                    "is_lesson_learned": row.get::<_, i64>(14)?,
-                    "is_weekly_highlight": row.get::<_, i64>(15)?,
-                    "is_pinned": row.get::<_, i64>(16)?,
-                    "outcome": row.get::<_, Option<String>>(17)?,
-                    "program_id": row.get::<_, Option<i64>>(18)?,
-                    "scheduled_item_id": row.get::<_, Option<i64>>(19)?,
+                    "title": row.get::<_, String>(5)?,
+                    "description": row.get::<_, Option<String>>(6)?,
+                    "project_id": row.get::<_, Option<i64>>(7)?,
+                    "status": row.get::<_, String>(8)?,
+                    "visibility": row.get::<_, String>(9)?,
+                    "is_accomplishment": row.get::<_, i64>(10)?,
+                    "is_weekly_highlight": row.get::<_, i64>(11)?,
+                    "is_pinned": row.get::<_, i64>(12)?,
+                    "program_id": row.get::<_, Option<i64>>(13)?,
+                    "scheduled_item_id": row.get::<_, Option<i64>>(14)?,
                 }))
             },
         )
@@ -1299,9 +1243,7 @@ struct DueInstanceRow {
     name: String,
     program_id: Option<i64>,
     program_name: Option<String>,
-    quick_complete: i64,
     template_entry_type: String,
-    template_work_type: String,
     project_id: Option<i64>,
     item_class: String,
     recurrence_type: Option<String>,
@@ -1317,10 +1259,7 @@ struct ScheduledItemRow {
     program_id: Option<i64>,
     project_id: Option<i64>,
     template_entry_type: String,
-    template_work_type: String,
-    template_tags: Option<String>,
     template_visibility: String,
-    quick_complete: i64,
 }
 
 /// Convert a row from the scheduled items SELECT (with LEFT JOIN programs, projects) into a ScheduledItemResponse.
@@ -1336,24 +1275,17 @@ fn scheduled_item_row_to_response(row: &rusqlite::Row) -> ScheduledItemResponse 
         recurrence_type: row.get(7).unwrap_or(None),
         day_of_week: row.get(8).unwrap_or(None),
         day_of_month: row.get(9).unwrap_or(None),
-        month_of_year: row.get(10).unwrap_or(None),
-        time_of_day: row.get(11).unwrap_or(None),
-        day_range_start: row.get(12).unwrap_or(None),
-        day_range_end: row.get(13).unwrap_or(None),
-        program_id: row.get(14).unwrap_or(None),
-        project_id: row.get(15).unwrap_or(None),
-        template_entry_type: row.get(16).unwrap_or_default(),
-        template_work_type: row.get(17).unwrap_or_default(),
-        template_tags: row.get(18).unwrap_or(None),
-        template_visibility: row.get(19).unwrap_or_default(),
-        quick_complete: row.get(20).unwrap_or(0),
-        status: row.get(21).unwrap_or_default(),
-        sort_order: row.get(22).unwrap_or(0),
-        item_class: row.get(23).unwrap_or_default(),
-        show_on_today: row.get(24).unwrap_or(1),
-        require_acknowledgment: row.get(25).unwrap_or(0),
-        program_name: row.get(26).unwrap_or(None),
-        project_name: row.get(27).unwrap_or(None),
+        program_id: row.get(10).unwrap_or(None),
+        project_id: row.get(11).unwrap_or(None),
+        template_entry_type: row.get(12).unwrap_or_default(),
+        template_visibility: row.get(13).unwrap_or_default(),
+        status: row.get(14).unwrap_or_default(),
+        sort_order: row.get(15).unwrap_or(0),
+        item_class: row.get(16).unwrap_or_default(),
+        show_on_today: row.get(17).unwrap_or(1),
+        require_acknowledgment: row.get(18).unwrap_or(0),
+        program_name: row.get(19).unwrap_or(None),
+        project_name: row.get(20).unwrap_or(None),
         instances: vec![],
     }
 }
@@ -1466,8 +1398,8 @@ mod tests {
         let conn = state.pool.get().unwrap();
         conn.query_row(
             "INSERT INTO scheduled_items \
-             (name, mode, template_entry_type, template_work_type, template_visibility, item_class) \
-             VALUES (?1, 'recurring', 'operational_rhythm', 'operational_rhythm', 'shareable', 'cadence') \
+             (name, mode, template_entry_type, template_visibility, item_class) \
+             VALUES (?1, 'recurring', 'operational_rhythm', 'shareable', 'cadence') \
              RETURNING id",
             rusqlite::params![name],
             |row| row.get::<_, i64>(0),

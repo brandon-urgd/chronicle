@@ -41,18 +41,14 @@ interface EntryResponse {
   updated_at: string;
   entry_date: string;
   entry_type: string;
-  work_type: string;
   title: string;
   description: string | null;
-  impact: string | null;
-  metrics: string | null;
   project_id: number | null;
   project_name: string | null;
   program_id: number | null;
   status: string;
   visibility: string;
   is_accomplishment: number;
-  is_lesson_learned: number;
   is_weekly_highlight: number;
   tags: Tag[];
   links: Link[];
@@ -76,24 +72,23 @@ interface EntryFormViewProps {
 
 /* ── Constants ── */
 const ENTRY_TYPES = [
-  'quick_capture', 'project_update', 'operational_rhythm', 'development',
-  'recognition', 'decision', 'milestone', 'action_item',
+  'quick_capture', 'project_update', 'operational_rhythm',
+  'recognition', 'decision', 'milestone',
 ] as const;
 
-/** Simplified set for new entries (R7) — legacy types only shown when editing existing entries */
+/** Simplified set for new entries — same as ENTRY_TYPES post v3.1 lean-out */
 const NEW_ENTRY_TYPES: readonly string[] = [
-  'quick_capture', 'project_update', 'decision', 'milestone', 'action_item',
+  'quick_capture', 'project_update', 'operational_rhythm',
+  'recognition', 'decision', 'milestone',
 ];
 
 const ENTRY_TYPE_CONFIG: Record<string, { emoji: string; label: string; color: string }> = {
   quick_capture:       { emoji: '', label: 'Quick Capture',       color: 'var(--accent-primary)' },
   project_update:      { emoji: '', label: 'Project Update',      color: 'var(--accent-secondary)' },
   operational_rhythm:  { emoji: '', label: 'Operational Rhythm',  color: 'var(--status-on-track)' },
-  development:         { emoji: '', label: 'Development',         color: 'var(--text-secondary)' },
   recognition:         { emoji: '', label: 'Recognition',         color: 'var(--accent-warning)' },
   decision:            { emoji: '', label: 'Decision',            color: 'var(--accent-danger)' },
   milestone:           { emoji: '', label: 'Milestone',           color: 'var(--status-completed)' },
-  action_item:         { emoji: '', label: 'Action Item',         color: 'var(--accent-danger)' },
 };
 
 const STATUS_OPTIONS = ['in_progress', 'completed', 'ongoing', 'paused'] as const;
@@ -137,11 +132,8 @@ const today = () => new Date().toISOString().split('T')[0];
 
 const emptyForm = () => ({
   entry_type: 'project_update' as string,
-  work_type: 'project' as string,
   title: '',
   description: '',
-  impact: '',
-  metrics: '',
   project_id: '',
   status: 'completed' as string,
   visibility: 'shareable' as string,
@@ -167,11 +159,8 @@ function serializeDirtyFields(
   const sortedTagIds = [...form.tag_ids].sort((a, b) => a - b);
   return JSON.stringify({
     entry_type: form.entry_type,
-    work_type: form.work_type,
     title: form.title,
     description: form.description,
-    impact: form.impact,
-    metrics: form.metrics,
     project_id: form.project_id,
     status: form.status,
     visibility: form.visibility,
@@ -196,12 +185,6 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
   /* ── Toggle flags (managed separately for edit mode) ── */
   const [isPinned, setIsPinned] = useState(0);
   const [outcome, setOutcome] = useState('');
-
-  /* ── Links state ── */
-  const [links, setLinks] = useState<Link[]>([]);
-  const [linkUrl, setLinkUrl] = useState('');
-  const [linkLabel, setLinkLabel] = useState('');
-  const [linkSaving, setLinkSaving] = useState(false);
 
   /* ── Program state ── */
   const [programs, setPrograms] = useState<ProgramBrief[]>([]);
@@ -276,13 +259,8 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
     const t = title.trimStart().toLowerCase();
     if (t.startsWith('decision:') || t.startsWith('decision -')) return 'decision';
     if (t.startsWith('milestone:') || t.startsWith('milestone -')) return 'milestone';
-    if (t.startsWith('action:') || t.startsWith('todo:') || t.startsWith('to-do:')) return 'action_item';
     if (t.startsWith('update:') || t.startsWith('status:')) return 'project_update';
-    // Legacy types — only infer when editing existing entries (R7)
-    if (isEdit) {
-      if (t.startsWith('lesson:') || t.startsWith('learned:')) return 'development';
-      if (t.startsWith('recognition:') || t.startsWith('kudos:')) return 'recognition';
-    }
+    if (t.startsWith('recognition:') || t.startsWith('kudos:')) return 'recognition';
     return null;
   }
 
@@ -337,11 +315,8 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
         const entry: EntryResponse = await res.json();
         const loadedForm = {
           entry_type: entry.entry_type,
-          work_type: entry.work_type,
           title: entry.title,
           description: entry.description ?? '',
-          impact: entry.impact ?? '',
-          metrics: entry.metrics ?? '',
           project_id: entry.project_id != null ? String(entry.project_id) : '',
           status: entry.status,
           visibility: entry.visibility,
@@ -356,8 +331,7 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
         setSelectedProgramId(loadedProgramId);
         setIsPinned(loadedIsPinned);
         setOutcome(loadedOutcome);
-        setLinks(entry.links ?? []);
-        setIsEdit(true);
+                setIsEdit(true);
         setEntryTypeManuallySet(true); // Don't override entry type in edit mode
         setShowSecondary(true); // Expand secondary section for edit mode
 
@@ -382,7 +356,6 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
       setSelectedProgramId(null);
       setIsPinned(0);
       setOutcome('');
-      setLinks([]);
       setIsEdit(false);
       setEntryTypeManuallySet(false);
       setShowSecondary(false); // Collapse secondary section for new entries
@@ -427,11 +400,8 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
     try {
       const body: Record<string, unknown> = {
         entry_type: form.entry_type,
-        work_type: form.work_type,
         title: form.title.trim(),
         description: form.description.trim() || '',
-        impact: form.impact.trim() || '',
-        metrics: form.metrics.trim() || '',
         project_id: form.project_id ? parseInt(form.project_id, 10) : null,
         program_id: selectedProgramId ?? null,
         status: form.status,
@@ -463,7 +433,6 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
           setSelectedProgramId(null);
           setIsPinned(0);
           setOutcome('');
-          setLinks([]);
           setIsEdit(false);
           setEntryTypeManuallySet(false);
           setShowSecondary(false);
@@ -483,34 +452,6 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
     try {
       const res = await fetch(`/api/entries/${editEntryId}/pin`, { method: 'PATCH' });
       if (res.ok) setIsPinned(prev => (prev ? 0 : 1));
-    } catch { /* ignore */ }
-  }
-
-  /* ── Link helpers ── */
-  async function addLink() {
-    if (!linkUrl.trim() || !editEntryId) return;
-    setLinkSaving(true);
-    try {
-      const res = await fetch('/api/links', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ parent_type: 'entry', parent_id: editEntryId, url: linkUrl, label: linkLabel || null }),
-      });
-      if (res.ok) {
-        setLinkUrl('');
-        setLinkLabel('');
-        loadEntry(editEntryId);
-      }
-    } catch { /* ignore */ }
-    finally { setLinkSaving(false); }
-  }
-
-  async function deleteLink(linkId: number) {
-    if (!editEntryId) return;
-    if (!confirm('Remove this link?')) return;
-    try {
-      await fetch(`/api/links/${linkId}`, { method: 'DELETE' });
-      loadEntry(editEntryId);
     } catch { /* ignore */ }
   }
 
@@ -682,9 +623,9 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
         </div>
 
         {/* ═══════════════════════════════════════════════════════════
-            SECONDARY SECTION — Collapsible "Impact & Details"
+            SECONDARY SECTION — Collapsible "More Details"
             Collapsed by default for new entries, expanded for edit mode
-            Impact, metrics, status, toggles
+            Status, pin toggle, outcome (decision entries)
             ═══════════════════════════════════════════════════════════ */}
         <div style={{ marginTop: '4px', marginBottom: '14px' }}>
           <button
@@ -710,34 +651,12 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
             }}>
               ▶
             </span>
-            Impact &amp; Details
+            More Details
           </button>
         </div>
 
         {showSecondary && (
           <div>
-            {/* ── Impact & Metrics row ── */}
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ ...fieldStyle, flex: 1, minWidth: '200px' }}>
-                <label style={labelStyle}>Impact</label>
-                <textarea
-                  style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
-                  value={form.impact}
-                  onChange={e => updateForm('impact', e.target.value)}
-                  placeholder="What was the impact?"
-                />
-              </div>
-              <div style={{ ...fieldStyle, flex: 1, minWidth: '200px' }}>
-                <label style={labelStyle}>Metrics</label>
-                <textarea
-                  style={{ ...inputStyle, minHeight: '60px', resize: 'vertical' }}
-                  value={form.metrics}
-                  onChange={e => updateForm('metrics', e.target.value)}
-                  placeholder="Quantifiable metrics…"
-                />
-              </div>
-            </div>
-
             {/* ── Status ── */}
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <div style={{ ...fieldStyle, flex: 1, minWidth: '130px' }}>
@@ -781,7 +700,7 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
         )}
 
         {/* ── Action Buttons ── */}
-        <div style={{ display: 'flex', gap: '12px', marginTop: '8px' }}>
+        <div style={{ display: 'flex', gap: '12px', marginTop: '8px', alignItems: 'center' }}>
           <button
             style={{ ...btnPrimary, opacity: saving || !form.title.trim() ? 0.6 : 1 }}
             onClick={() => saveEntry(false)}
@@ -806,78 +725,25 @@ export default function EntryFormView({ editEntryId, onSaved, onCancel, onDirtyC
               Cancel
             </button>
           )}
+          {isEdit && editEntryId && (
+            <button
+              style={{ ...btnDanger, marginLeft: 'auto' }}
+              onClick={async () => {
+                if (!confirm('Delete this entry? This cannot be undone.')) return;
+                try {
+                  const res = await fetch(`/api/entries/${editEntryId}`, { method: 'DELETE' });
+                  if (res.ok || res.status === 204) {
+                    onSaved?.();
+                    onCancel?.();
+                  }
+                } catch { /* ignore */ }
+              }}
+            >
+              Delete
+            </button>
+          )}
         </div>
       </div>
-
-      {/* ── Links Section (edit mode only) ── */}
-      {isEdit && editEntryId && (
-        <div style={sectionStyle}>
-          <h4 style={{ margin: '0 0 12px', fontSize: '14px', color: 'var(--accent-primary)' }}>Links</h4>
-          {links.length === 0 && (
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 8px' }}>No links.</p>
-          )}
-          {links.map(link => (
-            <div key={link.id} style={{
-              display: 'flex', alignItems: 'center', gap: '8px',
-              padding: '6px 12px', background: 'var(--input-bg)', borderRadius: '8px', marginBottom: '4px',
-            }}>
-              <a
-                href={link.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                style={{ flex: 1, color: 'var(--accent-primary)', fontSize: '13px', textDecoration: 'none' }}
-              >
-                {link.label || link.url}
-              </a>
-              <button style={btnDanger} onClick={() => deleteLink(link.id)}>×</button>
-            </div>
-          ))}
-          <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap' }}>
-            <input
-              style={{ ...inputStyle, flex: 2, minWidth: '180px' }}
-              value={linkUrl}
-              onChange={e => setLinkUrl(e.target.value)}
-              placeholder="URL"
-              aria-label="Link URL"
-            />
-            <input
-              style={{ ...inputStyle, flex: 1, minWidth: '120px' }}
-              value={linkLabel}
-              onChange={e => setLinkLabel(e.target.value)}
-              placeholder="Label (optional)"
-              aria-label="Link label"
-            />
-            <button
-              style={{ ...btnPrimary, opacity: linkSaving ? 0.6 : 1 }}
-              onClick={addLink}
-              disabled={linkSaving}
-            >
-              {linkSaving ? '…' : 'Add Link'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Delete Entry (edit mode only) ── */}
-      {isEdit && editEntryId && (
-        <div style={{ marginTop: '24px', paddingTop: '16px', borderTop: '1px solid var(--card-border)' }}>
-          <button
-            style={{ padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: 600, cursor: 'pointer', border: 'none', background: 'var(--accent-danger)', color: '#fff' }}
-            onClick={async () => {
-              if (!confirm('Delete this entry? This cannot be undone.')) return;
-              try {
-                const res = await fetch(`/api/entries/${editEntryId}`, { method: 'DELETE' });
-                if (res.ok || res.status === 204) {
-                  onSaved?.();
-                  onCancel?.();
-                }
-              } catch { /* ignore */ }
-            }}
-          >
-            Delete Entry
-          </button>
-        </div>
-      )}
     </div>
   );
 }

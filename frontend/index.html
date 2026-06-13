@@ -3,46 +3,70 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#111827" />
+    <meta name="theme-color" content="#1A1A1A" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>CHRONICLE</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { background: #111827; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+      body.theme-light { background: #F0F2F5; }
+      body.theme-dark { background: #1A1A1A; }
       #pre-loader {
         position: fixed; inset: 0; display: flex; flex-direction: column;
         align-items: center; justify-content: center; z-index: 9999;
         transition: opacity 0.4s ease;
       }
+      .theme-light .loader-mark {
+        background: linear-gradient(135deg, #1E3A5F 0%, #2D5A8A 100%);
+        color: #FFFFFF;
+      }
+      .theme-dark .loader-mark {
+        background: linear-gradient(135deg, #F9FAFB 0%, #D1D5DB 100%);
+        color: #1A1A1A;
+      }
       .loader-mark {
         width: 56px; height: 56px; border-radius: 14px;
-        background: linear-gradient(135deg, #F9FAFB 0%, #D1D5DB 100%);
-        color: #111827; font-size: 28px; font-weight: 800;
+        font-size: 28px; font-weight: 800;
         display: flex; align-items: center; justify-content: center;
         margin-bottom: 16px;
         animation: pulse 2s ease-in-out infinite;
-        box-shadow: 0 4px 20px rgba(249, 250, 251, 0.15);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
       }
+      .theme-light .loader-wordmark { color: #1B2838; }
+      .theme-dark .loader-wordmark { color: #EDEDED; }
       .loader-wordmark {
         font-size: 15px; font-weight: 700; letter-spacing: 4px;
-        color: #F9FAFB; margin-bottom: 24px;
+        margin-bottom: 24px;
       }
+      .theme-light .loader-bar { background: #D8DEE6; }
+      .theme-dark .loader-bar { background: #3D3D3D; }
       .loader-bar {
         width: 120px; height: 3px; border-radius: 2px;
-        background: #374151; overflow: hidden;
+        overflow: hidden;
       }
+      .theme-light .loader-bar-fill { background: linear-gradient(90deg, #1E3A5F, #5A9BD5); }
+      .theme-dark .loader-bar-fill { background: linear-gradient(90deg, #EDEDED, #8C8C8C); }
       .loader-bar-fill {
         width: 40%; height: 100%; border-radius: 2px;
-        background: linear-gradient(90deg, #F9FAFB, #9CA3AF);
         animation: slide 1.5s ease-in-out infinite;
       }
+      .theme-light .loader-status { color: #5A6E82; }
+      .theme-dark .loader-status { color: #8C8C8C; }
       .loader-status {
-        margin-top: 12px; font-size: 12px; color: #9CA3AF;
+        margin-top: 12px; font-size: 12px;
         letter-spacing: 0.5px;
       }
       @keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.04)} }
       @keyframes slide { 0%{transform:translateX(-100%)} 50%{transform:translateX(200%)} 100%{transform:translateX(-100%)} }
     </style>
+    <script>
+      // Apply saved theme class to body immediately (before paint) so splash matches
+      (function() {
+        var theme = 'dark';
+        try { theme = localStorage.getItem('chronicle-theme') || 'dark'; } catch(e) {}
+        document.body.className = 'theme-' + theme;
+      })();
+    </script>
   </head>
   <body>
     <div id="pre-loader">

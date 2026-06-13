@@ -1,8 +1,10 @@
-# Chronicle — System Architecture (v3.0.0)
+# Chronicle — System Architecture (v3.1.0)
 
 ## Overview
 
 Chronicle is a full-stack desktop application built with a three-layer architecture: a React frontend rendered in a native Tauri window, a Rust/axum HTTP server embedded directly in the Tauri process, and a SQLite database stored in the user's AppData directory. The Tauri Rust shell manages the application lifecycle, auto-backups, and native OS integrations. An MCP (Model Context Protocol) server provides AI agent integration.
+
+**Key change in v3.1:** Schema lean-out — 9 dead tables dropped, 5 unused entry columns removed (impact preserved by prepending to description), 7 unused scheduled_items columns removed. Backend routes, frontend UI surfaces, and MCP parameters trimmed to match the lean 14-table schema. UI polish pass adds Squid Ink + Aviation design tokens and a slide-in DetailPanel for entry/task triage. No new features added beyond the design system.
 
 **Key change in v3.0:** The data model is unified — tasks are the only input, entries are the only output. Completing a task (via the Dashboard, CaptureSheet, or MCP) is the sole mechanism for creating entries. The `entries` table is read-only output; `POST /api/entries` has been removed. A new Time Distribution page visualizes work allocation across programs. A graceful DB recovery flow replaces silent crashes on database errors.
 
@@ -18,7 +20,7 @@ Chronicle is a full-stack desktop application built with a three-layer architect
 │  │ Window Manager   │  │ Axum HTTP Server │  │ Native Integrations   │  │
 │  │                  │  │ (in-process)     │  │                       │  │
 │  │ • Create window  │  │                  │  │ • File open dialog    │  │
-│  │ • Load frontend  │  │ • ~95 API routes │  │ • File save dialog    │  │
+│  │ • Load frontend  │  │ • ~70 API routes │  │ • File save dialog    │  │
 │  │ • Close handler  │  │ • CORS layer     │  │ • Auto-backup on      │  │
 │  │                  │  │ • JSON responses │  │   close (5s timeout)  │  │
 │  │                  │  │ • Shared state   │  │ • Daily backup timer  │  │
@@ -41,13 +43,13 @@ Chronicle is a full-stack desktop application built with a three-layer architect
               loads static files + HTTP API
                        │
                        ▼
-┌──────────────────────────────────┐  ┌───────────────────────────────────┐
-│     FRONTEND (React 19 + TS)     │  │    MCP SERVER (Python)            │
-│     Vite-built static bundle     │  │    Reads chronicle.db directly    │
-│                                  │  │    via rusqlite-compatible SQLite │
-│  fetch('/api/...')               │  │                                   │
-│  ──────────────────────────────► │  │  (no HTTP dependency on backend)  │
-└──────────────────────────────────┘  └───────────────────────────────────┘
+┌──────────────────────────────────────────────┐  ┌───────────────────────────────────┐
+│     FRONTEND (React 19 + TS)                 │  │    MCP SERVER (Python)            │
+│     Vite-built static bundle                 │  │    Reads chronicle.db directly    │
+│                                              │  │    via rusqlite-compatible SQLite  │
+│  fetch('/api/...')                            │  │                                   │
+│  ────────────────────────────────────────►   │  │  (no HTTP dependency on backend)  │
+└──────────────────────────────────────────────┘  └───────────────────────────────────┘
                  │                                   │
                  │ HTTP JSON on :PORT                │ direct sqlite3 access
                  ▼                                   ▼
@@ -55,29 +57,26 @@ Chronicle is a full-stack desktop application built with a three-layer architect
 │                    DATA LAYER (%APPDATA%/Chronicle/)                     │
 │                                                                         │
 │  ┌─────────────────────────────────────────────────────────────────┐    │
-│  │  chronicle.db (SQLite, WAL mode)                                │    │
+│  │  chronicle.db (SQLite, WAL mode) — 14 tables                    │    │
 │  │                                                                 │    │
 │  │  Core Entities          Relationships        System             │    │
 │  │  ─────────────          ─────────────        ──────             │    │
 │  │  programs               entry_tags           settings           │    │
-│  │  goals                  lesson_tags          report_presets     │    │
-│  │  projects               project_stakeholders review_sessions    │    │
-│  │  entries                entry_attachments    review_notes       │    │
-│  │  scheduled_items        links                notes              │    │
-│  │  scheduled_item_instances                    report_drafts      │    │
-│  │  lessons_learned        Progress Logs                           │    │
-│  │  tags                   ──────────────                          │    │
-│  │  stakeholders           goal_progress_log                       │    │
-│  │  attachments            project_progress_log                    │    │
+│  │  goals                                       report_presets     │    │
+│  │  projects               Progress Logs        notes              │    │
+│  │  entries                ──────────────        report_drafts     │    │
+│  │  scheduled_items        goal_progress_log    tags               │    │
+│  │  scheduled_item_instances                                       │    │
+│  │                         project_progress_log                    │    │
 │  └─────────────────────────────────────────────────────────────────┘    │
 │                                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────────────┐  │
-│  │ attachments/  │  │  backups/    │  │  exports/                    │  │
-│  │              │  │              │  │                              │  │
-│  │ File uploads │  │ Auto-backups │  │ Manual export files          │  │
-│  │ by entry     │  │ (7-day       │  │ chronicle_backup_            │  │
-│  │              │  │  retention)  │  │   YYYYMMDD_HHMMSS.json      │  │
-│  └──────────────┘  └──────────────┘  └──────────────────────────────┘  │
+│  ┌──────────────┐  ┌──────────────────────────────┐                    │
+│  │  backups/    │  │  exports/                    │                    │
+│  │              │  │                              │                    │
+│  │ Auto-backups │  │ Manual export files          │                    │
+│  │ (7-day       │  │ chronicle_backup_            │                    │
+│  │  retention)  │  │   YYYYMMDD_HHMMSS.json      │                    │
+│  └──────────────┘  └──────────────────────────────┘                    │
 │                                                                         │
 │  ┌──────────────┐  ┌──────────────────────────────────────────────┐    │
 │  │ logs/         │  │ chronicle_config.json                        │    │
@@ -223,14 +222,11 @@ projects ◄────────────┘                            �
   │                                                ▼
   │ 1:N                    entries (READ-ONLY OUTPUT — v3.0)
   │                          │
-  ├── project_stakeholders   ├── entry_tags ──── tags
-  │     │                    ├── entry_attachments ── attachments
-  │     ▼                    ├── links
-  │   stakeholders           │
-  │                          │
-  ├── project_progress_log   │
-  │                          │
-  └──────────────────────────┘ (entries.project_id → projects.id)
+  │                          └── entry_tags ──── tags
+  │
+  ├── project_progress_log
+  │
+  └──────────────────────────── (entries.project_id → projects.id)
 
 v3.0 Unified Flow:
   scheduled_items ──[Task_Completion_Flow]──► entries
@@ -238,13 +234,10 @@ v3.0 Unified Flow:
 
 goals ── goal_progress_log
 
-lessons_learned ── lesson_tags ── tags
-
 settings (key-value store)
 report_presets
 report_drafts
 notes
-review_sessions ── review_notes
 ```
 
 ## Database Schema Summary
@@ -254,26 +247,63 @@ review_sessions ── review_notes
 | programs | Core | Organizational units (Primary, Strategic, Operational, etc.) |
 | goals | Core | SMART goals with fiscal year/quarter tracking |
 | projects | Core | Work items under goals with status lifecycle |
-| entries | Core | Daily work records (quick capture, project updates, etc.) |
-| scheduled_items | Core | Tasks (one-time) and cadence (recurring) items |
+| entries | Core | Daily work records (quick capture, project updates, etc.) — 15 columns |
+| scheduled_items | Core | Tasks (one-time) and cadence (recurring) items — 19 columns |
 | scheduled_item_instances | Core | Generated due-date instances for scheduled items |
-| lessons_learned | Core | Captured lessons with context and application |
 | tags | Core | User-defined labels |
-| stakeholders | Core | People associated with projects |
 | notes | Core | Prep notes for 1:1 topics and follow-ups |
 | report_drafts | Core | Persistent report documents with lifecycle status |
 | entry_tags | Junction | M:N entries ↔ tags |
-| lesson_tags | Junction | M:N lessons ↔ tags |
-| entry_attachments | Junction | M:N entries ↔ attachments |
-| project_stakeholders | Junction | M:N projects ↔ stakeholders |
-| links | Polymorphic | URL links attached to any entity type |
-| attachments | Storage | File metadata for uploaded attachments |
 | goal_progress_log | Log | Timestamped progress notes on goals |
 | project_progress_log | Log | Timestamped progress notes on projects |
 | settings | Config | Key-value application settings |
 | report_presets | Config | Saved report configurations |
-| review_sessions | Review | Logged review sessions with date ranges |
-| review_notes | Review | Notes attached to review sessions |
+
+**Total: 14 tables**
+
+### entries (15 columns)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | Auto-increment |
+| entry_date | TEXT | ISO date |
+| entry_type | TEXT | CHECK: quick_capture, project_update, operational_rhythm, milestone, decision, recognition |
+| title | TEXT | Required |
+| description | TEXT | Main content body |
+| project_id | INTEGER | FK → projects.id |
+| program_id | INTEGER | FK → programs.id |
+| status | TEXT | completed, in_progress, ongoing, paused |
+| visibility | TEXT | personal, shareable |
+| is_accomplishment | INTEGER | 0/1 flag |
+| is_weekly_highlight | INTEGER | 0/1 flag |
+| is_pinned | INTEGER | 0/1 flag |
+| scheduled_item_id | INTEGER | FK → scheduled_items.id |
+| created_at | TEXT | ISO timestamp |
+| updated_at | TEXT | ISO timestamp |
+
+### scheduled_items (19 columns)
+
+| Column | Type | Notes |
+|--------|------|-------|
+| id | INTEGER PK | Auto-increment |
+| name | TEXT | Required |
+| description | TEXT | Content body |
+| mode | TEXT | task or cadence |
+| due_date | TEXT | ISO date |
+| recurrence_type | TEXT | daily, weekly, biweekly, monthly, etc. |
+| day_of_week | INTEGER | 0-6 for recurring |
+| day_of_month | INTEGER | 1-31 for monthly |
+| program_id | INTEGER | FK → programs.id |
+| project_id | INTEGER | FK → projects.id |
+| template_entry_type | TEXT | Default entry_type on completion |
+| template_visibility | TEXT | Default visibility on completion |
+| status | TEXT | active, completed, paused, archived |
+| sort_order | INTEGER | Display ordering |
+| item_class | TEXT | task or cadence |
+| show_on_today | INTEGER | 0/1 flag |
+| require_acknowledgment | INTEGER | 0/1 flag |
+| created_at | TEXT | ISO timestamp |
+| updated_at | TEXT | ISO timestamp |
 
 ## Packaging Architecture (v2.5)
 
@@ -286,7 +316,7 @@ review_sessions ── review_notes
 │  │                                                        │  │
 │  │  Single native binary containing:                      │  │
 │  │  • Tauri shell (window management, lifecycle)          │  │
-│  │  • Axum HTTP server (all ~95 API routes)               │  │
+│  │  • Axum HTTP server (all ~70 API routes)               │  │
 │  │  • rusqlite (bundled SQLite)                           │  │
 │  │  • Scheduled engine + Export engine                    │  │
 │  │  • Embedded frontend/dist/ (HTML/JS/CSS)               │  │
@@ -299,14 +329,13 @@ review_sessions ── review_notes
 │  └────────────────────────────────────────────────────────┘  │
 └─────────────────────────────────────────────────────────────┘
 
-Actual installer size: 5.87 MB MSI / 4.21 MB NSIS EXE (down from ~45 MB with PyInstaller)
+Actual installer size: 5.87 MB MSI / 4.21 MB NSIS EXE
 
 User data (NOT in installer):
   %APPDATA%/Chronicle/
   ├── chronicle.db
   ├── chronicle_config.json
   ├── .port
-  ├── attachments/
   ├── backups/
   ├── exports/
   └── logs/
@@ -328,7 +357,7 @@ User data (NOT in installer):
 | Logging | tracing + tracing-appender | Structured logging, file rotation, compatible with tokio |
 | PDF generation | @react-pdf/renderer | Client-side, no server dependency, React component model |
 | Property testing | proptest (Rust) + fast-check (TS) | Formal correctness properties, catches edge cases example tests miss |
-| Styling | CSS variables + shared TS modules | Theme-able (light/dark), no build-time CSS framework |
+| Styling | CSS variables + design tokens (Squid Ink) | Theme-able (light/dark), 8px-base spacing, elevation hierarchy |
 
 ## Security Model
 
@@ -341,7 +370,7 @@ User data (NOT in installer):
 - No authentication required (single-user desktop app, data is local)
 - Read-only query endpoint (`/api/query`) rejects all non-SELECT statements
 
-## Backend Module Structure (v2.5)
+## Backend Module Structure (v3.1)
 
 ```
 src-tauri/
@@ -356,26 +385,22 @@ src-tauri/
     ├── db/
     │   ├── mod.rs           # Pool creation, init_db(), connection config
     │   ├── schema.rs        # CREATE TABLE statements, indexes
-    │   └── migrations.rs    # Version-gated schema migrations
+    │   └── migrations.rs    # Version-gated schema migrations (incl. v3.1)
     ├── routes/
     │   ├── mod.rs           # Router composition (all sub-routers merged)
-    │   ├── entries.rs       # CRUD for entries (~12 routes)
+    │   ├── entries.rs       # CRUD for entries (~10 routes)
     │   ├── programs.rs      # CRUD for programs (~8 routes)
-    │   ├── goals.rs         # CRUD for goals + progress log (~10 routes)
-    │   ├── projects.rs      # CRUD for projects + progress log (~10 routes)
+    │   ├── goals.rs         # CRUD for goals + progress log (~8 routes)
+    │   ├── projects.rs      # CRUD for projects + progress log (~8 routes)
     │   ├── scheduled.rs     # Scheduled items + instances (~12 routes)
     │   ├── tags.rs          # CRUD for tags (~5 routes)
-    │   ├── links.rs         # CRUD for links (~3 routes)
-    │   ├── attachments.rs   # Upload/download/delete (~4 routes)
-    │   ├── lessons.rs       # CRUD for lessons_learned (~6 routes)
     │   ├── settings.rs      # Settings + setup status (~5 routes)
     │   ├── export.rs        # Export/report generation (~3 routes)
     │   ├── backup.rs        # Backup/restore/import (~6 routes)
     │   ├── reports.rs       # Report presets + drafts (~8 routes)
-    │   ├── reviews.rs       # Review sessions + notes (~4 routes)
     │   ├── notes.rs         # Prep notes CRUD (~5 routes)
     │   ├── dashboard.rs     # Dashboard aggregate + heatmap (~3 routes)
-    │   ├── stakeholders.rs  # Stakeholder CRUD (~5 routes)
+    │   ├── data.rs          # Time distribution (~2 routes)
     │   └── system.rs        # health, version, shutdown, query (~4 routes)
     ├── models/
     │   ├── mod.rs           # Re-exports
@@ -393,11 +418,13 @@ src-tauri/
         └── export.rs        # Report template rendering, program resolution
 ```
 
+**Route modules (14):** entries, scheduled, goals, projects, programs, dashboard, notes, reports, export, backup, data, tags, system, settings
+
 ## View Architecture Notes
 
 ### Dashboard — Date-Organized Command Center
 
-The Dashboard view organizes work by temporal relevance: due today, overdue, upcoming (7 days), and work at a glance. It uses a two-column tiered layout (60/40 grid) with Activity Pulse, project-grouped tasks, Prep Notes, and Report Ready banner. The Upcoming section supports "By Date" (flat chronological) and "By Program" (grouped hierarchy) view modes with localStorage persistence.
+The Dashboard view organizes work by temporal relevance: due today, overdue, upcoming (7 days), and work at a glance. It uses a two-column tiered layout (60/40 grid) with Activity Pulse, project-grouped tasks, Prep Notes, and Report Ready banner. The Upcoming section supports "By Date" (flat chronological) and "By Program" (grouped hierarchy) view modes with localStorage persistence. Clicking a task opens the DetailPanel for triage.
 
 ### Portfolio — Scope-Organized Hierarchy
 
@@ -405,7 +432,7 @@ The Portfolio view organizes all work by scope (program → goal → project) ra
 
 ### Timeline — Chronological Activity Log
 
-The Timeline view is a date-grouped, filterable log of all entries. Supports deep-linking from Portfolio via "View in Timeline" with project filter and "All" time range. Entry edit form includes a Delete button with confirmation dialog.
+The Timeline view is a date-grouped, filterable log of all entries. Supports deep-linking from Portfolio via "View in Timeline" with project filter and "All" time range. Clicking an entry row opens the DetailPanel (slide-in from right) showing full entry detail. Entry edit form includes a Delete button with confirmation dialog.
 
 ### Distribution — Time Allocation Visualization (v3.0)
 
@@ -427,12 +454,13 @@ Searchable reference view with collapsible sections covering workflows, features
 
 | File | Scope | Used By |
 |------|-------|---------|
+| `index.css` | Design tokens: Squid Ink palette, spacing (8px base), elevation, radius, typography | All components via CSS variables |
 | `styles/sharedStyles.ts` | View-level styles: cards, sections, form inputs, buttons, chips, pills, status badges, type icons, headings | All views |
 | `styles/inlineEditStyles.ts` | Inline panel styles: panel container, compact buttons, compact inputs | useInlineTask, useInlineEntry, entity forms |
 
 ## Database Performance
 
-Nine indexes cover the most common query patterns:
+Four indexes cover the most common query patterns:
 
 | Index | Table | Columns | Benefits |
 |-------|-------|---------|----------|
@@ -440,11 +468,8 @@ Nine indexes cover the most common query patterns:
 | `idx_entries_program` | entries | program_id | Program-scoped entry queries |
 | `idx_entries_project` | entries | project_id | Project detail entry lists |
 | `idx_entries_type` | entries | entry_type | Type-filtered timeline queries |
-| `idx_goals_program` | goals | program_id | Program detail goal lists |
-| `idx_projects_program` | projects | program_id | Program detail project lists |
-| `idx_projects_goal` | projects | goal_id | Goal detail project lists |
-| `idx_links_parent` | links | parent_type, parent_id | Entity detail link fetching |
-| `idx_attachments_parent` | attachments | parent_type, parent_id | Entity detail attachment fetching |
+
+Additional indexes on goals, projects, and scheduled_items support Portfolio and Dashboard queries.
 
 ## MCP Server Integration
 
@@ -455,7 +480,6 @@ The MCP server is a Python process that reads the SQLite database **directly** v
 3. Schema-resilient: reads table structure from `sqlite_master` at startup and validates inputs against actual CHECK constraints
 4. Two variants:
    - `server.py` — full read-write access for AI agents (primary, used by Kiro)
-   - `chronicle_mcp.py` — legacy variant
    - `chronicle_readonly_mcp.py` — read-only variant for safer exploration
 
 **v3.0 MCP changes:**
@@ -463,7 +487,92 @@ The MCP server is a Python process that reads the SQLite database **directly** v
 - `create_and_complete_task` tool added — creates a task and immediately completes it, producing an entry (unified flow)
 - The MCP server writes to both `scheduled_items` and `entries` tables in a single transaction
 
-**Why direct SQLite instead of HTTP?** It survives the backend rewrite transparently (v2.0 Python → v2.5 Rust → v3.0 unified model) and sidesteps port-discovery complexity. The backend's write lock on the WAL is compatible with readers on the same database.
+**v3.1 MCP changes:**
+- Removed parameters from `create_and_complete_task`: work_type, impact, metrics, outcome
+- Removed parameters from `update_entry`: work_type, impact, metrics, outcome, is_lesson_learned
+- Removed parameter from `create_task` / `update_task`: template_work_type
+- Response objects from `search_entries` no longer contain removed fields
+- `chronicle_mcp.py` legacy variant removed
+
+### MCP Tools (27 total)
+
+| Tool | Purpose |
+|------|---------|
+| `create_and_complete_task` | Create task + immediately complete → entry |
+| `search_entries` | Query entries with filters |
+| `update_entry` | Modify entry fields |
+| `delete_entry` | Remove an entry |
+| `create_task` | Create a scheduled item (task) |
+| `update_task` | Modify scheduled item fields |
+| `list_tasks` | List active scheduled items |
+| `list_projects` | List all projects |
+| `get_project` | Get project detail |
+| `create_project` | Create a project |
+| `update_project` | Modify project fields |
+| `list_goals` | List all goals |
+| `get_goal` | Get goal detail |
+| `create_goal` | Create a goal |
+| `update_goal` | Modify goal fields |
+| `add_goal_progress` | Add goal progress log entry |
+| `add_project_progress` | Add project progress log entry |
+| `delete_progress_log` | Remove a progress log entry |
+| `create_note` | Create a prep note |
+| `list_notes` | List active prep notes |
+| `dismiss_note` | Dismiss a prep note |
+| `create_report_draft` | Create a report draft |
+| `list_report_drafts` | List all report drafts |
+| `update_report_draft` | Modify report draft |
+| `delete_report_draft` | Remove a report draft |
+| `list_programs` | List all programs |
+| `query` | Execute read-only SQL SELECT |
+
+**Why direct SQLite instead of HTTP?** It survives the backend rewrite transparently (v2.0 Python → v2.5 Rust → v3.0 unified model → v3.1 lean) and sidesteps port-discovery complexity. The backend's write lock on the WAL is compatible with readers on the same database.
+
+## Migration from v3.0 to v3.1
+
+| Aspect | v3.0 | v3.1 |
+|--------|------|------|
+| Tables | 23 | 14 (9 dropped) |
+| entries columns | 20 | 15 (5 removed: impact, work_type, metrics, outcome, is_lesson_learned) |
+| scheduled_items columns | 26 | 19 (7 removed: time_of_day, day_range_start, day_range_end, template_tags, quick_complete, month_of_year, template_work_type) |
+| Backend route modules | 19 | 14 (5 removed: links, attachments, lessons, reviews, stakeholders) |
+| API route count | ~95 | ~70 |
+| MCP tools | 28 | 27 |
+| entry_type values | 8 | 6 (removed: development, action_item; program_update → project_update) |
+| Design system | CSS variables (ad-hoc) | Squid Ink + Aviation tokens (8px-base, elevation, radius, typography) |
+| Entry/task detail UX | Modal-based editing | DetailPanel (slide-in from right, inline edit) |
+
+### Dropped tables (9)
+
+- `review_sessions` — zero usage in 2+ months
+- `review_notes` — child of review_sessions
+- `lessons_learned` — superseded by entry-based capture
+- `lesson_tags` — junction for lessons_learned
+- `attachments` — never used in production
+- `links` — never used in production
+- `program_progress_log` — confused with project_progress_log, zero usage
+- `stakeholders` — never used in production
+- `project_stakeholders` — junction for stakeholders
+
+### Migration procedure
+
+The migration is a single transaction-wrapped SQL script that:
+1. Prepends non-empty `impact` values to `description` (preserving narrative)
+2. Recategorizes `program_update` entries to `project_update`
+3. Drops the 9 dead tables
+4. Recreates `entries` and `scheduled_items` without removed columns (SQLite lacks DROP COLUMN pre-3.35)
+5. Rebuilds indexes on entries
+6. Runs VACUUM
+
+**Pre-requisite:** Backup file must exist before migration. Rollback requires restoring from backup (migration is irreversible once committed).
+
+**What does NOT change:**
+- SQLite database file path (`%APPDATA%/Chronicle/chronicle.db`)
+- WAL mode and FK enforcement
+- MCP server direct-access model
+- Core workflow: task → completion → entry
+- All 259 entries preserved (with impact text merged into description)
+- All 246 scheduled items preserved
 
 ## Migration from v2.0 to v2.5
 
@@ -481,7 +590,6 @@ The MCP server is a Python process that reads the SQLite database **directly** v
 - React frontend (same build, same API calls, same JSON shapes)
 - MCP server (same Python scripts, same port discovery via `.port` file)
 - User data location (`%APPDATA%/Chronicle/`)
-- API contract (all ~95 routes, same HTTP methods, same response bodies)
 - `chronicle_config.json` format
 
 **Upgrade path:** Users install v2.5 `.msi` (overwrites v2.0 installation). On first launch, the Rust backend opens the existing `chronicle.db` and operates on it without migration.

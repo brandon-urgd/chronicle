@@ -21,8 +21,8 @@ pub use goal::{
     CreateGoal, GoalProgressLogResponse, GoalResponse, UpdateGoal,
 };
 pub use project::{
-    CreateProject, LessonResponse, ProjectProgressLogResponse, ProjectResponse,
-    StakeholderResponse, UpdateProject,
+    CreateProject, ProjectProgressLogResponse, ProjectResponse,
+    UpdateProject,
 };
 pub use scheduled::{
     CreateScheduledItem, ScheduledInstanceResponse, ScheduledItemResponse, UpdateScheduledItem,

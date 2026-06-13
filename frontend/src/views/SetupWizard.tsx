@@ -294,7 +294,7 @@ export default function SetupWizard({ onComplete }: SetupWizardProps) {
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>Organization</label>
-              <input style={inputStyle} value={userOrg} onChange={e => setUserOrg(e.target.value)} placeholder="e.g. Engineering" />
+              <input style={inputStyle} value={userOrg} onChange={e => setUserOrg(e.target.value)} placeholder="e.g. ACO" />
             </div>
             <div style={fieldStyle}>
               <label style={labelStyle}>Manager Name</label>

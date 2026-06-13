@@ -39,7 +39,7 @@ The server reads `CHRONICLE_DB_PATH` to find the database. Set in the MCP config
 
 ```json
 "env": {
-    "CHRONICLE_DB_PATH": "C:\\Users\\username\\Documents\\Chronicle Data\\chronicle.db"
+    "CHRONICLE_DB_PATH": "C:\\Users\\bhillrog\\Desktop\\repository\\Chronicle Data\\chronicle.db"
 }
 ```
 

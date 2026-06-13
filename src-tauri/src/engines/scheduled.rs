@@ -19,11 +19,8 @@ pub struct ScheduledItemRow {
     pub recurrence_type: String,
     pub day_of_week: Option<i64>,
     pub day_of_month: Option<i64>,
-    pub month_of_year: Option<i64>,
     pub due_date: Option<String>,
     pub created_at: String,
-    pub day_range_start: Option<i64>,
-    pub day_range_end: Option<i64>,
 }
 
 // ─── Public API ─────────────────────────────────────────────────────────────
@@ -41,33 +38,27 @@ pub fn generate_pending_instances(conn: &Connection, lookahead_days: i64) -> Res
 
     // Query active recurring items
     let mut stmt = conn.prepare(
-        "SELECT id, recurrence_type, day_of_week, day_of_month, month_of_year, \
-                due_date, created_at, day_range_start, day_range_end, time_of_day \
+        "SELECT id, recurrence_type, day_of_week, day_of_month, \
+                due_date, created_at \
          FROM scheduled_items \
          WHERE mode = 'recurring' AND status = 'active'",
     )?;
 
-    let items: Vec<(ScheduledItemRow, Option<String>)> = stmt
+    let items: Vec<ScheduledItemRow> = stmt
         .query_map([], |row| {
-            Ok((
-                ScheduledItemRow {
-                    id: row.get(0)?,
-                    recurrence_type: row.get(1)?,
-                    day_of_week: row.get(2)?,
-                    day_of_month: row.get(3)?,
-                    month_of_year: row.get(4)?,
-                    due_date: row.get(5)?,
-                    created_at: row.get(6)?,
-                    day_range_start: row.get(7)?,
-                    day_range_end: row.get(8)?,
-                },
-                row.get::<_, Option<String>>(9)?, // time_of_day
-            ))
+            Ok(ScheduledItemRow {
+                id: row.get(0)?,
+                recurrence_type: row.get(1)?,
+                day_of_week: row.get(2)?,
+                day_of_month: row.get(3)?,
+                due_date: row.get(4)?,
+                created_at: row.get(5)?,
+            })
         })?
         .filter_map(|r| r.ok())
         .collect();
 
-    for (item, time_of_day) in &items {
+    for item in &items {
         // Respect due_date as cadence start: don't generate instances before it
         let mut item_start = today;
         if let Some(ref due_date_str) = item.due_date {
@@ -85,9 +76,9 @@ pub fn generate_pending_instances(conn: &Connection, lookahead_days: i64) -> Res
         for d in &due_dates {
             conn.execute(
                 "INSERT OR IGNORE INTO scheduled_item_instances \
-                 (scheduled_item_id, due_date, due_time, status) \
-                 VALUES (?1, ?2, ?3, 'pending')",
-                rusqlite::params![item.id, d.format("%Y-%m-%d").to_string(), time_of_day],
+                 (scheduled_item_id, due_date, status) \
+                 VALUES (?1, ?2, 'pending')",
+                rusqlite::params![item.id, d.format("%Y-%m-%d").to_string()],
             )?;
         }
     }
@@ -118,31 +109,25 @@ pub fn generate_pending_instances_for_item(
     // paused status), return Ok(0) so callers don't need to special-case it.
     let item_data = conn
         .query_row(
-            "SELECT id, recurrence_type, day_of_week, day_of_month, month_of_year, \
-                    due_date, created_at, day_range_start, day_range_end, time_of_day \
+            "SELECT id, recurrence_type, day_of_week, day_of_month, \
+                    due_date, created_at \
              FROM scheduled_items \
              WHERE id = ?1 AND mode = 'recurring' AND status = 'active'",
             rusqlite::params![item_id],
             |row| {
-                Ok((
-                    ScheduledItemRow {
-                        id: row.get(0)?,
-                        recurrence_type: row.get(1)?,
-                        day_of_week: row.get(2)?,
-                        day_of_month: row.get(3)?,
-                        month_of_year: row.get(4)?,
-                        due_date: row.get(5)?,
-                        created_at: row.get(6)?,
-                        day_range_start: row.get(7)?,
-                        day_range_end: row.get(8)?,
-                    },
-                    row.get::<_, Option<String>>(9)?, // time_of_day
-                ))
+                Ok(ScheduledItemRow {
+                    id: row.get(0)?,
+                    recurrence_type: row.get(1)?,
+                    day_of_week: row.get(2)?,
+                    day_of_month: row.get(3)?,
+                    due_date: row.get(4)?,
+                    created_at: row.get(5)?,
+                })
             },
         )
         .ok();
 
-    let Some((item, time_of_day)) = item_data else {
+    let Some(item) = item_data else {
         return Ok(0);
     };
 
@@ -164,9 +149,9 @@ pub fn generate_pending_instances_for_item(
     for d in &due_dates {
         let changes = conn.execute(
             "INSERT OR IGNORE INTO scheduled_item_instances \
-             (scheduled_item_id, due_date, due_time, status) \
-             VALUES (?1, ?2, ?3, 'pending')",
-            rusqlite::params![item.id, d.format("%Y-%m-%d").to_string(), time_of_day],
+             (scheduled_item_id, due_date, status) \
+             VALUES (?1, ?2, 'pending')",
+            rusqlite::params![item.id, d.format("%Y-%m-%d").to_string()],
         )?;
         inserted += changes as i64;
     }
@@ -236,6 +221,9 @@ pub fn auto_complete_past_due_cadence(conn: &Connection) -> Result<i64> {
 ///
 /// Supports: daily (Mon-Fri), every_day (all 7), weekly, biweekly, monthly,
 /// quarterly, annual.
+///
+/// For annual recurrence, the month is derived from the item's due_date (cadence
+/// start date). If no due_date is set, defaults to January.
 pub fn compute_due_dates(
     item: &ScheduledItemRow,
     start: NaiveDate,
@@ -263,7 +251,14 @@ pub fn compute_due_dates(
             quarterly_dates(day, fiscal_start_month, start, end)
         }
         "annual" => {
-            let month = item.month_of_year.unwrap_or(1) as u32;
+            // Derive month from due_date or created_at; default to January
+            let month = item
+                .due_date
+                .as_ref()
+                .and_then(|s| parse_date(s))
+                .or_else(|| parse_date(&item.created_at))
+                .map(|d| d.month())
+                .unwrap_or(1);
             let day = item.day_of_month.unwrap_or(1).min(28) as u32;
             annual_dates(month, day, start, end)
         }
@@ -773,11 +768,8 @@ mod tests {
             recurrence_type: "weekly".to_string(),
             day_of_week: Some(3), // Tuesday
             day_of_month: None,
-            month_of_year: None,
             due_date: None,
             created_at: "2025-01-01".to_string(),
-            day_range_start: None,
-            day_range_end: None,
         };
 
         let dates = compute_due_dates(&item, start, end, 10);
@@ -851,7 +843,6 @@ mod tests {
             ]),
             day_of_week in 1i64..=7,
             day_of_month in 1i64..=28,
-            month_of_year in 1i64..=12,
             // Generate start year/month/day within reasonable range
             start_year in 2020i32..=2030,
             start_month in 1u32..=12,
@@ -868,11 +859,8 @@ mod tests {
                 recurrence_type: recurrence_type.to_string(),
                 day_of_week: Some(day_of_week),
                 day_of_month: Some(day_of_month),
-                month_of_year: Some(month_of_year),
                 due_date: Some(start.format("%Y-%m-%d").to_string()),
                 created_at: start.format("%Y-%m-%d").to_string(),
-                day_range_start: None,
-                day_range_end: None,
             };
 
             let dates = compute_due_dates(&item, start, end, fiscal_start);
@@ -1028,7 +1016,6 @@ mod tests {
             recurrence_type in prop::sample::select(vec!["monthly", "quarterly", "annual"]),
             // Generate day_of_month values > 28 to test capping
             day_of_month in 29i64..=31,
-            month_of_year in 1i64..=12,
             start_year in 2020i32..=2028,
             start_month in 1u32..=12,
             range_days in 30i64..=365,
@@ -1042,11 +1029,8 @@ mod tests {
                 recurrence_type: recurrence_type.to_string(),
                 day_of_week: None,
                 day_of_month: Some(day_of_month),
-                month_of_year: Some(month_of_year),
                 due_date: Some(start.format("%Y-%m-%d").to_string()),
                 created_at: start.format("%Y-%m-%d").to_string(),
-                day_range_start: None,
-                day_range_end: None,
             };
 
             let dates = compute_due_dates(&item, start, end, fiscal_start);

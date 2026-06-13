@@ -594,8 +594,6 @@ fn fetch_program_goals(
                 linked_projects_count: 0,
                 progress_log: vec![],
                 projects: vec![],
-                links: vec![],
-                attachments: vec![],
             })
         })?
         .filter_map(|r| r.ok())

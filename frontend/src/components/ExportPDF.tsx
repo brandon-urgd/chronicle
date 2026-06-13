@@ -129,17 +129,17 @@ function PDFItem({ item, accent }: { item: ExportItem; accent?: boolean }) {
 }
 
 /* ── Section Renderer ── */
-function PDFSection({ sec, isFirstProgram }: { sec: ExportSection; isFirstProgram?: boolean }) {
+function PDFSection({ sec }: { sec: ExportSection }) {
   if (!sec.enabled) return null;
   const enabledItems = sec.items.filter(i => i.enabled);
   const hasCadence = sec.cadenceData && sec.cadenceData.length > 0;
   if (enabledItems.length === 0 && !hasCadence) return null;
   const isAccent = sec.id === 'highlight' || sec.id === 'on-track';
 
-  /* Program section: prominent header + optional page break (R22.1, R22.2) */
+  /* Program section: prominent header (R22.1, R22.2) */
   if (sec.isProgramSection) {
     return (
-      <View break={!isFirstProgram}>
+      <View>
         <Text style={s.programHeading}>{sec.heading}</Text>
         <View style={s.programAccent} />
         {enabledItems.map((item, i) => (
@@ -165,9 +165,6 @@ function PDFSection({ sec, isFirstProgram }: { sec: ExportSection; isFirstProgra
 function ExportPDFDocument({ data, userName }: { data: ParsedExport; userName: string }) {
   const sortedSections = [...data.sections].sort((a, b) => a.order - b.order);
 
-  /* Track program sections to determine which is first (skip page break on first) */
-  let programIndex = 0;
-
   return (
     <Document>
       <Page size="A4" style={s.page}>
@@ -177,11 +174,8 @@ function ExportPDFDocument({ data, userName }: { data: ParsedExport; userName: s
         <View style={s.accentLine} />
 
         {sortedSections.map(sec => {
-          const isProgram = !!sec.isProgramSection;
-          const isFirst = isProgram && programIndex === 0;
-          if (isProgram) programIndex++;
           return (
-            <PDFSection key={sec.id} sec={sec} isFirstProgram={isFirst} />
+            <PDFSection key={sec.id} sec={sec} />
           );
         })}
 

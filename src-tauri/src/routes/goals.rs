@@ -12,7 +12,6 @@ use serde::Deserialize;
 
 use crate::db::SharedState;
 use crate::error::AppError;
-use crate::models::entry::{AttachmentResponse, LinkResponse};
 use crate::models::goal::{
     CreateGoal, GoalProgressLogCreate, GoalProgressLogResponse, GoalResponse, UpdateGoal,
 };
@@ -152,7 +151,7 @@ async fn list_goals(
     Ok(Json(goals))
 }
 
-/// GET /api/goals/:id â€” get a single goal with progress_log, projects, links, attachments.
+/// GET /api/goals/:id â€” get a single goal with progress_log and projects.
 async fn get_goal(
     State(state): State<SharedState>,
     Path(id): Path<i64>,
@@ -185,12 +184,6 @@ async fn get_goal(
 
     // Linked projects count
     goal.linked_projects_count = goal.projects.len() as i64;
-
-    // Links where parent_type='goal'
-    goal.links = fetch_links(&conn, "goal", id)?;
-
-    // Attachments where parent_type='goal'
-    goal.attachments = fetch_attachments(&conn, "goal", id)?;
 
     Ok(Json(goal))
 }
@@ -317,16 +310,6 @@ async fn delete_goal(
 
     // goal_progress_log has ON DELETE CASCADE â€” handled by FK
     // projects have ON DELETE SET NULL on goal_id â€” handled by FK
-    // links and attachments need manual cleanup (no FK on parent_id)
-    conn.execute(
-        "DELETE FROM links WHERE parent_type = 'goal' AND parent_id = ?1",
-        rusqlite::params![id],
-    )?;
-    conn.execute(
-        "DELETE FROM attachments WHERE parent_type = 'goal' AND parent_id = ?1",
-        rusqlite::params![id],
-    )?;
-
     conn.execute("DELETE FROM goals WHERE id = ?1", rusqlite::params![id])?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -467,8 +450,6 @@ fn goal_row_to_response(row: &rusqlite::Row) -> GoalResponse {
         linked_projects_count: 0,
         progress_log: vec![],
         projects: vec![],
-        links: vec![],
-        attachments: vec![],
     }
 }
 
@@ -558,75 +539,11 @@ fn fetch_goal_projects(
                 program_name: row.get(13)?,
                 goal_title: Some(goal_title.to_string()),
                 entries: vec![],
-                links: vec![],
-                attachments: vec![],
-                stakeholders: vec![],
                 progress_log: vec![],
-                lessons: vec![],
             })
         })?
         .filter_map(|r| r.ok())
         .collect();
 
     Ok(projects)
-}
-
-/// Fetch links for a given parent type and ID.
-fn fetch_links(
-    conn: &rusqlite::Connection,
-    parent_type: &str,
-    parent_id: i64,
-) -> Result<Vec<LinkResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_type, parent_id, url, label, created_at
-         FROM links WHERE parent_type = ?1 AND parent_id = ?2
-         ORDER BY created_at ASC",
-    )?;
-
-    let links = stmt
-        .query_map(rusqlite::params![parent_type, parent_id], |row| {
-            Ok(LinkResponse {
-                id: row.get(0)?,
-                parent_type: row.get(1)?,
-                parent_id: row.get(2)?,
-                url: row.get(3)?,
-                label: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(links)
-}
-
-/// Fetch attachments for a given parent type and ID.
-fn fetch_attachments(
-    conn: &rusqlite::Connection,
-    parent_type: &str,
-    parent_id: i64,
-) -> Result<Vec<AttachmentResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_type, parent_id, filename, original_name, file_size, mime_type, created_at
-         FROM attachments WHERE parent_type = ?1 AND parent_id = ?2
-         ORDER BY created_at ASC",
-    )?;
-
-    let attachments = stmt
-        .query_map(rusqlite::params![parent_type, parent_id], |row| {
-            Ok(AttachmentResponse {
-                id: row.get(0)?,
-                parent_type: row.get(1)?,
-                parent_id: row.get(2)?,
-                filename: row.get(3)?,
-                original_name: row.get(4)?,
-                file_size: row.get(5)?,
-                mime_type: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(attachments)
 }

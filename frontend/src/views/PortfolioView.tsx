@@ -50,11 +50,6 @@ interface ScheduledItem {
   time_of_day: string | null;
 }
 
-interface StakeholderResponse {
-  id: number; name: string; email: string | null;
-  role: string | null; notes: string | null; created_at: string;
-}
-
 interface ProgramEditData {
   name: string; description: string; program_type: string;
   status: string; color: string; owner: string;
@@ -115,6 +110,7 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
   const [expandedGoals, setExpandedGoals] = useState<Set<number>>(() => {
     try { const s = readAppState(); return new Set(s.portfolioView?.expandedGoals ?? []); } catch { return new Set(); }
   });
+  const [smartExpandedGoals, setSmartExpandedGoals] = useState<Set<number>>(new Set());
   const [expandedProjects, setExpandedProjects] = useState<Set<number>>(() => {
     try { const s = readAppState(); return new Set(s.portfolioView?.expandedProjects ?? []); } catch { return new Set(); }
   });
@@ -181,13 +177,6 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
   const [editingGoalId, setEditingGoalId] = useState<number | null>(null);
   const [goalEditData, setGoalEditData] = useState<GoalEditData | null>(null);
 
-  // Stakeholder state for project edit
-  const [projectStakeholders, setProjectStakeholders] = useState<StakeholderResponse[]>([]);
-  const [stakeholderSearch, setStakeholderSearch] = useState('');
-  const [stakeholderResults, setStakeholderResults] = useState<StakeholderResponse[]>([]);
-  const [newStakeholderName, setNewStakeholderName] = useState('');
-  const [newStakeholderEmail, setNewStakeholderEmail] = useState('');
-  const [newStakeholderRole, setNewStakeholderRole] = useState('');
   const fetchAll = useCallback(async () => {
     try {
       const [pRes, gRes, prRes, eRes, sRes] = await Promise.all([
@@ -406,12 +395,6 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
           target_end_date: data.target_end_date ?? '',
           metrics: data.metrics ?? '',
         });
-        setProjectStakeholders(data.stakeholders ?? []);
-        setStakeholderSearch('');
-        setStakeholderResults([]);
-        setNewStakeholderName('');
-        setNewStakeholderEmail('');
-        setNewStakeholderRole('');
       }
     } catch { /* ignore */ }
   }
@@ -442,72 +425,6 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
     try {
       const res = await fetch(`/api/projects/${projectId}`, { method: 'DELETE' });
       if (res.ok || res.status === 204) { setEditingProjectId(null); setProjectEditData(null); fetchAll(); }
-    } catch { /* ignore */ }
-  }
-
-  // ── Stakeholder helpers ──
-  async function handleUnlinkStakeholder(projectId: number, stakeholderId: number) {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/stakeholders/${stakeholderId}`, { method: 'DELETE' });
-      if (res.ok) {
-        setProjectStakeholders(prev => prev.filter(s => s.id !== stakeholderId));
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function searchStakeholders(query: string) {
-    setStakeholderSearch(query);
-    if (!query.trim()) { setStakeholderResults([]); return; }
-    try {
-      const res = await fetch('/api/stakeholders');
-      if (res.ok) {
-        const all: StakeholderResponse[] = await res.json();
-        const q = query.toLowerCase();
-        setStakeholderResults(all.filter(s =>
-          s.name.toLowerCase().includes(q) &&
-          !projectStakeholders.some(ps => ps.id === s.id)
-        ));
-      }
-    } catch { setStakeholderResults([]); }
-  }
-
-  async function handleLinkStakeholder(projectId: number, stakeholderId: number) {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/stakeholders/${stakeholderId}`, {
-        method: 'POST',
-      });
-      if (res.ok) {
-        const linked = stakeholderResults.find(s => s.id === stakeholderId);
-        if (linked) setProjectStakeholders(prev => [...prev, linked]);
-        setStakeholderSearch('');
-        setStakeholderResults([]);
-      }
-    } catch { /* ignore */ }
-  }
-
-  async function handleAddNewStakeholder(projectId: number) {
-    if (!newStakeholderName.trim()) return;
-    try {
-      const createRes = await fetch('/api/stakeholders', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: newStakeholderName.trim(),
-          email: newStakeholderEmail.trim() || null,
-          role: newStakeholderRole.trim() || null,
-        }),
-      });
-      if (createRes.ok) {
-        const created: StakeholderResponse = await createRes.json();
-        const linkRes = await fetch(`/api/projects/${projectId}/stakeholders/${created.id}`, {
-          method: 'POST',
-        });
-        if (linkRes.ok) {
-          setProjectStakeholders(prev => [...prev, created]);
-          setNewStakeholderName('');
-          setNewStakeholderEmail('');
-          setNewStakeholderRole('');
-        }
-      }
     } catch { /* ignore */ }
   }
 
@@ -988,72 +905,6 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
           ) : (
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No entries yet</div>
           )}
-        </div>
-        {/* Stakeholders section */}
-        <div style={{ marginTop: '14px', paddingTop: '12px', borderTop: '1px solid var(--card-border)' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Stakeholders</span>
-          {/* Current stakeholders */}
-          <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
-            {projectStakeholders.length === 0 && (
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic' }}>No stakeholders linked</div>
-            )}
-            {projectStakeholders.map(s => (
-              <div key={s.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 8px', background: 'var(--input-bg)', borderRadius: '6px', fontSize: '12px' }}>
-                <span style={{ color: 'var(--text-primary)', fontWeight: 600, flex: 1 }}>{s.name}</span>
-                {s.email && <span style={{ color: 'var(--text-muted)' }}>{s.email}</span>}
-                {s.role && <span style={{ color: 'var(--accent-secondary)' }}>{s.role}</span>}
-                <button style={{ ...inlineBtnStyle('transparent', 'var(--accent-danger)'), padding: '2px 6px', fontSize: '10px' }}
-                  onClick={() => handleUnlinkStakeholder(projId, s.id)}>Unlink</button>
-              </div>
-            ))}
-          </div>
-          {/* Search existing stakeholders */}
-          <div style={{ marginTop: '8px', position: 'relative' }}>
-            <input style={{ ...inlineInputStyle, width: '100%' }}
-              value={stakeholderSearch}
-              onChange={e => searchStakeholders(e.target.value)}
-              placeholder="Search existing stakeholders…"
-              aria-label="Search stakeholders" />
-            {stakeholderResults.length > 0 && (
-              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 10,
-                background: 'var(--card-bg)', border: '1px solid var(--card-border)', borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.2)', maxHeight: '150px', overflowY: 'auto' }}>
-                {stakeholderResults.map(s => (
-                  <div key={s.id} style={{ padding: '6px 10px', cursor: 'pointer', fontSize: '12px',
-                    display: 'flex', gap: '8px', alignItems: 'center' }}
-                    onClick={() => handleLinkStakeholder(projId, s.id)}>
-                    <span style={{ color: 'var(--text-primary)', fontWeight: 600 }}>{s.name}</span>
-                    {s.email && <span style={{ color: 'var(--text-muted)' }}>{s.email}</span>}
-                    {s.role && <span style={{ color: 'var(--accent-secondary)' }}>{s.role}</span>}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          {/* Add new stakeholder */}
-          <div style={{ marginTop: '8px', display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Name *</label>
-              <input style={{ ...inlineInputStyle, width: '100%' }}
-                value={newStakeholderName} onChange={e => setNewStakeholderName(e.target.value)}
-                placeholder="Name" aria-label="New stakeholder name" />
-            </div>
-            <div style={{ flex: '1 1 120px' }}>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Email</label>
-              <input style={{ ...inlineInputStyle, width: '100%' }}
-                value={newStakeholderEmail} onChange={e => setNewStakeholderEmail(e.target.value)}
-                placeholder="Email (optional)" aria-label="New stakeholder email" />
-            </div>
-            <div style={{ flex: '1 1 100px' }}>
-              <label style={{ display: 'block', fontSize: '10px', color: 'var(--text-muted)', marginBottom: '2px' }}>Role</label>
-              <input style={{ ...inlineInputStyle, width: '100%' }}
-                value={newStakeholderRole} onChange={e => setNewStakeholderRole(e.target.value)}
-                placeholder="Role (optional)" aria-label="New stakeholder role" />
-            </div>
-            <button style={{ ...inlineBtnStyle('var(--button-primary-bg)', 'var(--text-on-primary)'), opacity: newStakeholderName.trim() ? 1 : 0.5 }}
-              onClick={() => handleAddNewStakeholder(projId)}
-              disabled={!newStakeholderName.trim()}>+ Add</button>
-          </div>
         </div>
       </div>
     );
@@ -1967,7 +1818,7 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
 
                       {goalExpanded && (
                         <div style={{ paddingLeft: '24px' }}>
-                          {/* SMART fields */}
+                          {/* SMART fields — collapsible, closed by default */}
                           {(() => {
                             const smartFields: { label: string; value: string | null }[] = [
                               { label: 'Specific', value: goal.specific },
@@ -1978,10 +1829,19 @@ export default function PortfolioView({ onNavigateToQuickCapture, onNavigateToTa
                             ];
                             const visible = smartFields.filter(f => f.value && f.value.trim());
                             if (visible.length === 0) return null;
+                            const isSmartOpen = smartExpandedGoals.has(goal.id);
                             return (
                               <div style={{ marginBottom: '8px' }}>
-                                {visible.map(f => (
-                                  <div key={f.label} style={{ display: 'flex', gap: '6px', padding: '2px 0' }}>
+                                <button
+                                  onClick={e => { e.stopPropagation(); setSmartExpandedGoals(prev => { const next = new Set(prev); if (next.has(goal.id)) next.delete(goal.id); else next.add(goal.id); return next; }); }}
+                                  style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '2px 0', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                                  aria-expanded={isSmartOpen}
+                                >
+                                  <span style={{ fontSize: '9px', transition: 'transform 0.15s', transform: isSmartOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}>▶</span>
+                                  SMART Fields
+                                </button>
+                                {isSmartOpen && visible.map(f => (
+                                  <div key={f.label} style={{ display: 'flex', gap: '6px', padding: '2px 0', paddingLeft: '14px' }}>
                                     <span style={{ fontSize: '12px', color: 'var(--text-secondary)', minWidth: '80px', flexShrink: 0 }}>{f.label}:</span>
                                     <span style={{ fontSize: '12px', color: 'var(--text-primary)' }}>{f.value}</span>
                                   </div>

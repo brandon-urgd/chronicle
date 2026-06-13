@@ -1,7 +1,7 @@
 {
     "name":  "chronicle-frontend",
     "private":  true,
-    "version": "3.0.0",
+    "version": "3.1.0",
     "_versionNote":  "Version must match across all 5 locations â€” see docs/VERSION_LOCATIONS.md",
     "type":  "module",
     "scripts":  {

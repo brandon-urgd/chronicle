@@ -4,7 +4,6 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::entry::{AttachmentResponse, LinkResponse};
 use super::project::ProjectResponse;
 
 // ─── Progress Log ───────────────────────────────────────────────────────────
@@ -56,8 +55,6 @@ pub struct GoalResponse {
     pub linked_projects_count: i64,
     pub progress_log: Vec<GoalProgressLogResponse>,
     pub projects: Vec<ProjectResponse>,
-    pub links: Vec<LinkResponse>,
-    pub attachments: Vec<AttachmentResponse>,
 }
 
 // ─── Create Goal ────────────────────────────────────────────────────────────
@@ -233,8 +230,6 @@ mod tests {
             linked_projects_count: 0,
             progress_log: vec![],
             projects: vec![],
-            links: vec![],
-            attachments: vec![],
         };
 
         let json = serde_json::to_value(&response).unwrap();
@@ -252,8 +247,6 @@ mod tests {
         // Required collections always present
         assert!(json.get("progress_log").is_some());
         assert!(json.get("projects").is_some());
-        assert!(json.get("links").is_some());
-        assert!(json.get("attachments").is_some());
     }
 
     #[test]
@@ -275,7 +268,7 @@ mod tests {
             target_date: Some("2025-03-31".to_string()),
             is_accomplishment: 1,
             program_id: Some(3),
-            program_name: Some("My Program".to_string()),
+            program_name: Some("ACO AI".to_string()),
             linked_projects_count: 2,
             progress_log: vec![GoalProgressLogResponse {
                 id: 1,
@@ -285,8 +278,6 @@ mod tests {
                 status_at_time: "on_track".to_string(),
             }],
             projects: vec![],
-            links: vec![],
-            attachments: vec![],
         };
 
         let json = serde_json::to_value(&response).unwrap();
@@ -294,7 +285,7 @@ mod tests {
         assert_eq!(json["fiscal_year"], 2025);
         assert_eq!(json["quarter"], 1);
         assert_eq!(json["program_id"], 3);
-        assert_eq!(json["program_name"], "My Program");
+        assert_eq!(json["program_name"], "ACO AI");
         assert_eq!(json["linked_projects_count"], 2);
         assert_eq!(json["is_accomplishment"], 1);
 

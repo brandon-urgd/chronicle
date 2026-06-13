@@ -4,7 +4,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use super::entry::{AttachmentResponse, EntryResponse, LinkResponse};
+use super::entry::EntryResponse;
 
 // ─── Progress Log ───────────────────────────────────────────────────────────
 
@@ -16,56 +16,6 @@ pub struct ProjectProgressLogResponse {
     pub created_at: String,
     pub note: String,
     pub status_at_time: String,
-}
-
-// ─── Stakeholder Response (inline for project detail) ───────────────────────
-
-/// Stakeholder response used within project detail responses.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct StakeholderResponse {
-    pub id: i64,
-    pub name: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub email: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub notes: Option<String>,
-    pub created_at: String,
-}
-
-// ─── Lesson Response (inline for project detail) ────────────────────────────
-
-/// Minimal lesson response used within project detail responses.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LessonResponse {
-    pub id: i64,
-    pub created_at: String,
-    pub updated_at: String,
-    pub title: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub context: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub lesson: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub application: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_entry_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_project_id: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_entry_title: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub source_project_name: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_range_start: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_range_end: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub date_range_label: Option<String>,
-    pub tags: Vec<super::entry::TagResponse>,
-    pub links: Vec<LinkResponse>,
-    pub attachments: Vec<AttachmentResponse>,
 }
 
 // ─── Project Response ───────────────────────────────────────────────────────
@@ -98,11 +48,7 @@ pub struct ProjectResponse {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub program_name: Option<String>,
     pub entries: Vec<EntryResponse>,
-    pub links: Vec<LinkResponse>,
-    pub attachments: Vec<AttachmentResponse>,
-    pub stakeholders: Vec<StakeholderResponse>,
     pub progress_log: Vec<ProjectProgressLogResponse>,
-    pub lessons: Vec<LessonResponse>,
 }
 
 // ─── Create Project ─────────────────────────────────────────────────────────
@@ -252,11 +198,7 @@ mod tests {
             program_id: None,
             program_name: None,
             entries: vec![],
-            links: vec![],
-            attachments: vec![],
-            stakeholders: vec![],
             progress_log: vec![],
-            lessons: vec![],
         };
 
         let json = serde_json::to_value(&response).unwrap();
@@ -273,11 +215,7 @@ mod tests {
         assert!(json.get("program_name").is_none());
         // Required collections always present
         assert!(json.get("entries").is_some());
-        assert!(json.get("links").is_some());
-        assert!(json.get("attachments").is_some());
-        assert!(json.get("stakeholders").is_some());
         assert!(json.get("progress_log").is_some());
-        assert!(json.get("lessons").is_some());
     }
 
     #[test]
@@ -297,18 +235,8 @@ mod tests {
             goal_title: Some("Improve performance".to_string()),
             is_accomplishment: 1,
             program_id: Some(3),
-            program_name: Some("My Program".to_string()),
+            program_name: Some("ACO AI".to_string()),
             entries: vec![],
-            links: vec![],
-            attachments: vec![],
-            stakeholders: vec![StakeholderResponse {
-                id: 1,
-                name: "Brandon".to_string(),
-                email: Some("brandon@example.com".to_string()),
-                role: Some("Lead".to_string()),
-                notes: None,
-                created_at: "2025-01-01T00:00:00".to_string(),
-            }],
             progress_log: vec![ProjectProgressLogResponse {
                 id: 1,
                 project_id: 7,
@@ -316,7 +244,6 @@ mod tests {
                 note: "Sprint 1 complete".to_string(),
                 status_at_time: "active".to_string(),
             }],
-            lessons: vec![],
         };
 
         let json = serde_json::to_value(&response).unwrap();
@@ -324,16 +251,8 @@ mod tests {
         assert_eq!(json["goal_id"], 5);
         assert_eq!(json["goal_title"], "Improve performance");
         assert_eq!(json["program_id"], 3);
-        assert_eq!(json["program_name"], "My Program");
+        assert_eq!(json["program_name"], "ACO AI");
         assert_eq!(json["is_accomplishment"], 1);
-
-        let stakeholders = json["stakeholders"].as_array().unwrap();
-        assert_eq!(stakeholders.len(), 1);
-        assert_eq!(stakeholders[0]["name"], "Brandon");
-        assert_eq!(stakeholders[0]["email"], "brandon@example.com");
-        assert_eq!(stakeholders[0]["role"], "Lead");
-        // notes is None, should be omitted
-        assert!(stakeholders[0].get("notes").is_none());
 
         let logs = json["progress_log"].as_array().unwrap();
         assert_eq!(logs.len(), 1);

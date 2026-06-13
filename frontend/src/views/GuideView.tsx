@@ -90,7 +90,7 @@ export default function GuideView() {
   const finalVisible = query ? contentVisible : new Set(sections.map(s => s.id));
 
   return (
-    <div ref={containerRef} style={{ maxWidth: '800px', margin: '0 auto' }}>
+    <div ref={containerRef} style={{ maxWidth: '900px' }}>
       {/* Search */}
       <div style={{ marginBottom: '20px' }}>
         <input
@@ -135,8 +135,13 @@ export default function GuideView() {
         </ol>
 
         <h4 style={{ color: 'var(--text-primary)', margin: '16px 0 8px' }}>Navigation</h4>
-        <p style={{ marginBottom: '0' }}>
+        <p style={{ marginBottom: '14px' }}>
           The sidebar on the left provides access to all pages: Dashboard, Portfolio, Timeline, Reports, Settings, and this Guide. The sidebar also has a <strong>Capture Entry</strong> button, a theme toggle (light/dark mode), and an About link showing version info.
+        </p>
+
+        <h4 style={{ color: 'var(--text-primary)', margin: '16px 0 8px' }}>Visual Design</h4>
+        <p style={{ marginBottom: '0' }}>
+          Chronicle uses a purpose-built color system: <strong>Squid Ink</strong> (cool-toned light mode) and <strong>Warm Charcoal</strong> (dark mode). Cards have subtle elevation on hover, modals use a soft scrim, and entry details open in a slide-in panel from the right edge. Toggle between modes with the theme switch in the sidebar.
         </p>
       </Section>
 
@@ -144,7 +149,7 @@ export default function GuideView() {
       <Section title="2. Concepts (Glossary)" id="concepts" visible={finalVisible.has('concepts')}>
         <Term name="Batch Mode">A toggle available in all three Quick Capture modes (Log, Task, Rhythm). Enter one item per line to create multiple entries, tasks, or cadences at once. All items share the same program, project, and date settings.</Term>
         <Term name="Cadence">A recurring scheduled item (e.g., a weekly standup or monthly review). Cadences auto-generate instances on their schedule. Frequencies: Every Day, Every Weekday, Weekly, Biweekly, Monthly, Quarterly. Edited from the Portfolio cadence section.</Term>
-        <Term name="Entry">A daily work record — the atomic unit of Chronicle. Types include: quick capture, project update, operational rhythm, decision, milestone, development, action item, and recognition. Entries can be standalone or linked to a project.</Term>
+        <Term name="Entry">A daily work record — the atomic unit of Chronicle. The six entry types are: quick_capture, project_update, operational_rhythm, milestone, decision, and recognition. Entries can be standalone or linked to a project.</Term>
         <Term name="Goal">A SMART objective with fiscal year/quarter tracking and status. Goals may belong to a program, or exist independently. Goals may contain projects. SMART fields: Specific, Measurable, Achievable, Relevant, Time-bound.</Term>
         <Term name="Instance">A single occurrence of a cadence on a specific date. When a cadence generates an instance for today, it appears in your Dashboard as a task to complete or skip.</Term>
         <Term name="Prep Note">A lightweight sticky note for 1:1 topics, follow-up reminders, or quick thoughts. Persists until dismissed. Click a note to edit it inline (Enter to save, Escape to cancel). Click the × button to dismiss.</Term>
@@ -186,20 +191,19 @@ export default function GuideView() {
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
           <ColorChip color="var(--accent-warning)" label="Decision (amber)" />
           <ColorChip color="var(--accent-success)" label="Milestone (green)" />
-          <ColorChip color="#4a9eff" label="Action Item (blue)" />
         </div>
-        <p style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>Other entry types (notes, project updates, etc.) have no border.</p>
+        <p style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>Other entry types (quick captures, project updates, etc.) have no border.</p>
       </Section>
 
       {/* Section 4: Page Guide */}
       <Section title="4. Page Guide" id="pages" visible={finalVisible.has('pages')}>
-        <Term name="Dashboard">Your daily command center. Sections: Activity Pulse (entries this week, tasks completed, time since last entry), Today's Tasks (click to open detail modal with edit/complete/skip/delete), Prep Notes (right column), Upcoming (next 7 days — toggle between "By Date" flat list and "By Program" grouped view), Work at a Glance (all active tasks), and Recent Activity (latest entries). Section collapse states persist across sessions.</Term>
+        <Term name="Dashboard">Your daily command center. Sections: Activity Pulse (entries this week, tasks completed, time since last entry), Today's Tasks (click a task to open the detail panel with edit/complete/skip/delete actions), Prep Notes (right column), Upcoming (next 7 days — toggle between "By Date" flat list and "By Program" grouped view), Work at a Glance (all active tasks), and Recent Activity (latest entries). Section collapse states persist across sessions.</Term>
         <Term name="Portfolio">Organize work by scope. Displays the Program → Goal → Project hierarchy with metrics (entry counts, goal status, completion rates). Edit cadences here — expand a project's cadence section to see the inline edit panel with frequency, day, time, accountable toggle, and "Show on Today" toggle. Also has "View in Timeline" and "Promote to Goal" actions on projects. Search queries the server for fast filtering.</Term>
-        <Term name="Timeline">Chronological log of all entries. Filter by time range (previous week/month/quarter/year/custom), program, project, entry type, or free-text search. When navigating from Portfolio via "View in Timeline," a project filter banner appears showing which project's entries are displayed, with a "Clear filter" button. Supports compact/normal density and newest/oldest sort order. Click an entry to edit — the edit form includes a Delete button at the bottom.</Term>
+        <Term name="Timeline">Chronological log of all entries. Filter by time range (previous week/month/quarter/year/custom), program, project, entry type, or free-text search. When navigating from Portfolio via "View in Timeline," a project filter banner appears showing which project's entries are displayed, with a "Clear filter" button. Supports compact/normal density and newest/oldest sort order. Click an entry to open the detail panel sliding in from the right — view full content, edit inline, or delete.</Term>
         <Term name="Distribution">See where you spend your time. Shows percentage breakdown of entries by program (and drill-down into projects) over selectable time periods: This Week, This Month, This Quarter, or Custom date range. A stacked bar at the top gives a visual overview. The Trend section compares your current period to the equivalent previous period with ↑/↓/─ indicators. Useful for 1:1s, self-reviews, and capacity planning.</Term>
         <Term name="Reports">Generate leadership-ready reports. Choose a template (Status Update or Modular), select a date range scope, optionally filter by program, toggle individual sections (Modular only — toggled-off sections are excluded from both preview and PDF), then Generate. Preview the result, copy to clipboard, download as PDF, or save as a draft. Manage saved drafts and presets here.</Term>
         <Term name="Settings">Profile (name, fiscal year start month, theme), Tags (create/edit/delete tags for entries), Report Presets (saved report configurations), Data Location (choose where Chronicle stores its database — useful for cloud drives), Export & Import (full database backup/restore, app reset), and Repair Database (enter recovery mode if something goes wrong).</Term>
-        <Term name="About">Accessed from the sidebar footer (ⓘ icon). Shows app version, architecture overview, tech stack, and key features summary.</Term>
+        <Term name="About">Accessed from the sidebar footer (ⓘ icon). Shows app version, architecture overview (14-table lean schema), design system info, tech stack, and key features summary.</Term>
       </Section>
 
       {/* Section 5: Keyboard Shortcuts */}
@@ -228,7 +232,7 @@ export default function GuideView() {
           Open Quick Capture → switch to Cadence mode → type a name → choose frequency (Every Day, Every Weekday, Weekly, Biweekly, Monthly, Quarterly) → set a start date → optionally check "Requires acknowledgment" → Create Cadence.
         </Workflow>
         <Workflow title="Complete a task from Dashboard">
-          Dashboard → find the task in Today's Tasks → click the Complete button directly, or click the task row to open the detail modal → optionally add description/impact/metrics → click Complete. Completing a task creates a corresponding entry in Timeline.
+          Dashboard → find the task in Today's Tasks → click the Complete button directly, or click the task row to open the detail panel → optionally add a description → click Complete. Completing a task creates a corresponding entry in Timeline.
         </Workflow>
         <Workflow title="Edit a cadence schedule">
           Portfolio → expand a project's Cadence section → click the cadence name → the inline edit panel opens with frequency, day of week/month, time, "Show on Today" toggle, and accountable toggle → make changes → Save.
@@ -267,7 +271,7 @@ export default function GuideView() {
 
         <h4 style={{ margin: '18px 0 8px', fontSize: '14px', color: 'var(--text-primary)' }}>What You're Building</h4>
         <p style={{ marginBottom: '14px' }}>
-          A single Python file that connects to your Chronicle database and exposes tools (functions) that an AI can call. The AI sees tool names and descriptions, decides when to use them, and passes structured arguments. Your server executes the SQL and returns results.
+          A single Python file that connects to your Chronicle database (v3.1 lean schema — 14 tables) and exposes tools (functions) that an AI can call. The AI sees tool names and descriptions, decides when to use them, and passes structured arguments. Your server executes the SQL and returns results.
         </p>
 
         <h4 style={{ margin: '18px 0 8px', fontSize: '14px', color: 'var(--text-primary)' }}>Prerequisites</h4>
@@ -312,26 +316,35 @@ def list_entries(program_id: int = None, limit: int = 20) -> str:
     return json.dumps([dict(r) for r in rows], indent=2)
 
 @mcp.tool()
-def create_and_complete_task(title: str, entry_date: str, program_id: int = None) -> str:
+def create_and_complete_task(title: str, entry_date: str, entry_type: str = "quick_capture",
+                             description: str = None, program_id: int = None,
+                             project_id: int = None, status: str = "completed",
+                             visibility: str = "shareable",
+                             is_accomplishment: int = 0,
+                             is_weekly_highlight: int = 0) -> str:
     """Create a task and immediately complete it, producing an entry.
-    This is the v3.0 unified way to log work in Chronicle."""
+    This is the v3.1 unified way to log work in Chronicle.
+    entry_type must be one of: quick_capture, project_update,
+    operational_rhythm, milestone, decision, recognition."""
     conn = _conn()
     now = entry_date
     # 1. Create the task
     cur = conn.execute(
         "INSERT INTO scheduled_items (name, item_class, mode, status, "
-        "program_id, created_at, updated_at) VALUES (?, 'task', "
-        "'one_time', 'completed', ?, ?, ?)",
-        (title, program_id, now, now)
+        "program_id, project_id, created_at, updated_at) VALUES (?, 'task', "
+        "'one_time', 'completed', ?, ?, ?, ?)",
+        (title, program_id, project_id, now, now)
     )
     task_id = cur.lastrowid
     # 2. Create the entry linked to the task
     conn.execute(
-        "INSERT INTO entries (title, entry_date, entry_type, work_type, "
-        "status, visibility, program_id, scheduled_item_id) "
-        "VALUES (?, ?, 'quick_capture', 'operational_rhythm', "
-        "'completed', 'shareable', ?, ?)",
-        (title, entry_date, program_id, task_id)
+        "INSERT INTO entries (title, description, entry_date, entry_type, "
+        "status, visibility, program_id, project_id, "
+        "is_accomplishment, is_weekly_highlight, scheduled_item_id) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (title, description, entry_date, entry_type,
+         status, visibility, program_id, project_id,
+         is_accomplishment, is_weekly_highlight, task_id)
     )
     conn.commit()
     conn.close()
@@ -367,20 +380,19 @@ def query(sql: str) -> str:
 
         <h4 style={{ margin: '18px 0 8px', fontSize: '14px', color: 'var(--text-primary)' }}>Chronicle Database Schema Reference</h4>
         <p style={{ marginBottom: '8px', fontSize: '13px' }}>
-          These are the tables your tools can read from and write to. Changes appear in the app on next refresh.
+          Chronicle uses 14 tables. These are the tables your tools can read from and write to. Changes appear in the app on next refresh.
         </p>
         <div style={{ marginBottom: '14px', fontSize: '12px', lineHeight: '2', fontFamily: 'monospace' }}>
-          <strong>entries</strong> (id, title, description, entry_date, entry_type, work_type, status, visibility, program_id, project_id, is_accomplishment, is_weekly_highlight, is_pinned)<br/>
+          <strong>entries</strong> (id, title, description, entry_date, entry_type, status, visibility, program_id, project_id, is_accomplishment, is_weekly_highlight, is_pinned, scheduled_item_id, created_at, updated_at)<br/>
           <strong>programs</strong> (id, name, status, program_type, color, description)<br/>
           <strong>goals</strong> (id, title, description, status, fiscal_year, quarter, target_date, program_id, specific, measurable, achievable, relevant, time_bound)<br/>
           <strong>projects</strong> (id, name, description, status, start_date, target_end_date, goal_id, program_id)<br/>
-          <strong>scheduled_items</strong> (id, name, description, mode[one_time|recurring], item_class[task|cadence], status, due_date, recurrence_type, day_of_week, day_of_month, time_of_day, program_id, project_id)<br/>
-          <strong>scheduled_item_instances</strong> (id, scheduled_item_id, due_date, due_time, status[pending|completed|skipped], resolved_at, skip_reason)<br/>
+          <strong>scheduled_items</strong> (id, name, description, mode, item_class, status, due_date, recurrence_type, day_of_week, day_of_month, program_id, project_id, template_entry_type, template_visibility, sort_order, show_on_today, require_acknowledgment, created_at, updated_at)<br/>
+          <strong>scheduled_item_instances</strong> (id, scheduled_item_id, due_date, due_time, status, resolved_at, skip_reason)<br/>
           <strong>notes</strong> (id, text, created_at, dismissed_at)<br/>
-          <strong>report_drafts</strong> (id, title, content, status[draft|ready|sent], preset_id, date_range_start, date_range_end)<br/>
+          <strong>report_drafts</strong> (id, title, content, status, preset_id, date_range_start, date_range_end)<br/>
           <strong>report_presets</strong> (id, name, template_type, sections, scope, is_default)<br/>
           <strong>tags</strong> (id, name) + <strong>entry_tags</strong> (entry_id, tag_id)<br/>
-          <strong>stakeholders</strong> (id, name, email, role, notes) + <strong>project_stakeholders</strong> (project_id, stakeholder_id)<br/>
           <strong>goal_progress_log</strong> (id, goal_id, note, status_at_time, created_at)<br/>
           <strong>project_progress_log</strong> (id, project_id, note, status_at_time, created_at)<br/>
           <strong>settings</strong> (key, value) — app configuration key-value store
@@ -400,7 +412,7 @@ def query(sql: str) -> str:
         <h4 style={{ margin: '18px 0 8px', fontSize: '14px', color: 'var(--text-primary)' }}>Example Use Cases</h4>
         <div style={{ marginBottom: '14px', fontSize: '13px', lineHeight: '1.8' }}>
           • "Create entries for everything I did this week" — bulk entry creation from a conversation<br/>
-          • "What did I work on last month for the Engineering program?" — filtered entry search<br/>
+          • "What did I work on last month for the AGS program?" — filtered entry search<br/>
           • "Create a task for each action item from this meeting" — batch task creation<br/>
           • "Update all my goals to reflect Q2 progress" — bulk goal updates<br/>
           • "Generate a weekly summary from my entries" — custom reporting logic<br/>

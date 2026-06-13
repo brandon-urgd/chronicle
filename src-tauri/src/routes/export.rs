@@ -148,7 +148,7 @@ fn query_entries(
     program_id: Option<i64>,
 ) -> Result<Vec<EntryExportData>, AppError> {
     let mut sql = String::from(
-        "SELECT id, title, description, impact, entry_type, work_type, status, \
+        "SELECT id, title, description, entry_type, status, \
          entry_date, project_id, program_id, visibility, is_accomplishment, \
          is_weekly_highlight, is_pinned \
          FROM entries WHERE 1=1",
@@ -190,17 +190,15 @@ fn map_entry_row(row: &rusqlite::Row) -> rusqlite::Result<EntryExportData> {
         id: row.get(0)?,
         title: row.get(1)?,
         description: row.get(2)?,
-        impact: row.get(3)?,
-        entry_type: row.get(4)?,
-        work_type: row.get(5)?,
-        status: row.get(6)?,
-        entry_date: row.get(7)?,
-        project_id: row.get(8)?,
-        program_id: row.get(9)?,
-        visibility: row.get(10)?,
-        is_accomplishment: row.get(11)?,
-        is_weekly_highlight: row.get(12)?,
-        is_pinned: row.get(13)?,
+        entry_type: row.get(3)?,
+        status: row.get(4)?,
+        entry_date: row.get(5)?,
+        project_id: row.get(6)?,
+        program_id: row.get(7)?,
+        visibility: row.get(8)?,
+        is_accomplishment: row.get(9)?,
+        is_weekly_highlight: row.get(10)?,
+        is_pinned: row.get(11)?,
     })
 }
 

@@ -311,13 +311,13 @@ function App() {
         <div style={{
           position: 'fixed', inset: 0, zIndex: 9999,
           display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '12px',
-          background: 'var(--modal-overlay)',
-          backdropFilter: 'blur(var(--modal-blur))',
-          WebkitBackdropFilter: 'blur(var(--modal-blur))',
+          background: 'rgba(0, 0, 0, 0.6)',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
         }} role="alert" aria-live="assertive">
-          <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '2px', color: 'var(--text-primary)' }}>CHRONICLE</div>
+          <div style={{ fontSize: '24px', fontWeight: 800, letterSpacing: '2px', color: '#FFFFFF' }}>CHRONICLE</div>
           <p style={{ color: 'var(--accent-warning)', fontSize: '14px', fontWeight: 600, margin: 0 }}>Connection lost</p>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0 }}>Reconnecting to backend…</p>
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '13px', margin: 0 }}>Reconnecting to backend…</p>
         </div>
       )}
       <nav className="sidebar" role="navigation" aria-label="Main navigation">

@@ -12,10 +12,10 @@ use serde::Deserialize;
 
 use crate::db::SharedState;
 use crate::error::AppError;
-use crate::models::entry::{AttachmentResponse, EntryResponse, LinkResponse, TagResponse};
+use crate::models::entry::{EntryResponse, TagResponse};
 use crate::models::project::{
-    CreateProject, LessonResponse, ProjectProgressLogCreate, ProjectProgressLogResponse,
-    ProjectResponse, StakeholderResponse, UpdateProject,
+    CreateProject, ProjectProgressLogCreate, ProjectProgressLogResponse,
+    ProjectResponse, UpdateProject,
 };
 
 /// Query parameters for the list projects endpoint.
@@ -148,7 +148,7 @@ async fn list_projects(
     Ok(Json(projects))
 }
 
-/// GET /api/projects/:id â€” get a single project with entries, progress_log, stakeholders, lessons, links, attachments.
+/// GET /api/projects/:id â€” get a single project with entries and progress_log.
 async fn get_project(
     State(state): State<SharedState>,
     Path(id): Path<i64>,
@@ -178,20 +178,8 @@ async fn get_project(
     // Linked entries (where project_id matches) with their tags
     project.entries = fetch_project_entries(&conn, id, &project.name)?;
 
-    // Links where parent_type='project'
-    project.links = fetch_links(&conn, "project", id)?;
-
-    // Attachments where parent_type='project'
-    project.attachments = fetch_attachments(&conn, "project", id)?;
-
-    // Stakeholders linked via project_stakeholders junction
-    project.stakeholders = fetch_project_stakeholders(&conn, id)?;
-
-    // Progress log â€” chronological (oldest first)
+    // Progress log
     project.progress_log = fetch_project_progress_log(&conn, id)?;
-
-    // Lessons learned linked to this project
-    project.lessons = fetch_project_lessons(&conn, id)?;
 
     Ok(Json(project))
 }
@@ -320,19 +308,8 @@ async fn delete_project(
         return Err(AppError::NotFound("Project not found".to_string()));
     }
 
-    // project_progress_log has ON DELETE CASCADE â€” handled by FK
-    // project_stakeholders has ON DELETE CASCADE â€” handled by FK
-    // entries have ON DELETE SET NULL on project_id â€” handled by FK
-    // links and attachments need manual cleanup (no FK on parent_id)
-    conn.execute(
-        "DELETE FROM links WHERE parent_type = 'project' AND parent_id = ?1",
-        rusqlite::params![id],
-    )?;
-    conn.execute(
-        "DELETE FROM attachments WHERE parent_type = 'project' AND parent_id = ?1",
-        rusqlite::params![id],
-    )?;
-
+    // project_progress_log has ON DELETE CASCADE
+    // entries have ON DELETE SET NULL on project_id
     conn.execute("DELETE FROM projects WHERE id = ?1", rusqlite::params![id])?;
 
     Ok(StatusCode::NO_CONTENT)
@@ -469,11 +446,7 @@ fn project_row_to_response(row: &rusqlite::Row) -> ProjectResponse {
         program_id: row.get(13).unwrap_or(None),
         program_name: row.get(14).unwrap_or(None),
         entries: vec![],
-        links: vec![],
-        attachments: vec![],
-        stakeholders: vec![],
         progress_log: vec![],
-        lessons: vec![],
     }
 }
 
@@ -510,10 +483,9 @@ fn fetch_project_entries(
 ) -> Result<Vec<EntryResponse>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT e.id, e.created_at, e.updated_at, e.entry_date, e.entry_type, \
-         e.work_type, e.title, e.description, e.impact, e.metrics, \
-         e.project_id, e.status, e.visibility, \
-         e.is_accomplishment, e.is_lesson_learned, e.is_weekly_highlight, \
-         e.is_pinned, e.outcome, e.program_id, e.scheduled_item_id \
+         e.title, e.description, e.project_id, e.status, e.visibility, \
+         e.is_accomplishment, e.is_weekly_highlight, e.is_pinned, \
+         e.program_id, e.scheduled_item_id \
          FROM entries e WHERE e.project_id = ?1 \
          ORDER BY e.entry_date DESC",
     )?;
@@ -526,21 +498,16 @@ fn fetch_project_entries(
                 updated_at: row.get(2)?,
                 entry_date: row.get(3)?,
                 entry_type: row.get(4)?,
-                work_type: row.get(5)?,
-                title: row.get(6)?,
-                description: row.get(7)?,
-                impact: row.get(8)?,
-                metrics: row.get(9)?,
-                project_id: row.get(10)?,
-                status: row.get(11)?,
-                visibility: row.get(12)?,
-                is_accomplishment: row.get(13)?,
-                is_lesson_learned: row.get(14)?,
-                is_weekly_highlight: row.get(15)?,
-                is_pinned: row.get(16)?,
-                outcome: row.get(17)?,
-                program_id: row.get(18)?,
-                scheduled_item_id: row.get(19)?,
+                title: row.get(5)?,
+                description: row.get(6)?,
+                project_id: row.get(7)?,
+                status: row.get(8)?,
+                visibility: row.get(9)?,
+                is_accomplishment: row.get(10)?,
+                is_weekly_highlight: row.get(11)?,
+                is_pinned: row.get(12)?,
+                program_id: row.get(13)?,
+                scheduled_item_id: row.get(14)?,
             })
         })?
         .filter_map(|r| r.ok())
@@ -558,11 +525,8 @@ fn fetch_project_entries(
             updated_at: er.updated_at,
             entry_date: er.entry_date,
             entry_type: er.entry_type,
-            work_type: er.work_type,
             title: er.title,
             description: er.description,
-            impact: er.impact,
-            metrics: er.metrics,
             project_id: er.project_id,
             project_name: Some(project_name.to_string()),
             program_id: er.program_id,
@@ -571,13 +535,9 @@ fn fetch_project_entries(
             status: er.status,
             visibility: er.visibility,
             is_accomplishment: er.is_accomplishment,
-            is_lesson_learned: er.is_lesson_learned,
             is_weekly_highlight: er.is_weekly_highlight,
             is_pinned: er.is_pinned,
-            outcome: er.outcome,
             tags: tags_by_entry.get(&er.id).cloned().unwrap_or_default(),
-            links: vec![],
-            attachments: vec![],
         })
         .collect();
 
@@ -591,19 +551,14 @@ struct EntryRow {
     updated_at: String,
     entry_date: String,
     entry_type: String,
-    work_type: String,
     title: String,
     description: Option<String>,
-    impact: Option<String>,
-    metrics: Option<String>,
     project_id: Option<i64>,
     status: String,
     visibility: String,
     is_accomplishment: i64,
-    is_lesson_learned: i64,
     is_weekly_highlight: i64,
     is_pinned: i64,
-    outcome: Option<String>,
     program_id: Option<i64>,
     scheduled_item_id: Option<i64>,
 }
@@ -654,35 +609,6 @@ fn batch_fetch_entry_tags(
     Ok(tags_map)
 }
 
-/// Fetch stakeholders linked to a project via project_stakeholders junction.
-fn fetch_project_stakeholders(
-    conn: &rusqlite::Connection,
-    project_id: i64,
-) -> Result<Vec<StakeholderResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT s.id, s.name, s.email, s.role, s.notes, s.created_at \
-         FROM stakeholders s \
-         JOIN project_stakeholders ps ON s.id = ps.stakeholder_id \
-         WHERE ps.project_id = ?1 \
-         ORDER BY s.name",
-    )?;
-
-    let stakeholders = stmt
-        .query_map(rusqlite::params![project_id], |row| {
-            Ok(StakeholderResponse {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                email: row.get(2)?,
-                role: row.get(3)?,
-                notes: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(stakeholders)
-}
 
 /// Fetch progress log entries for a project (oldest first).
 fn fetch_project_progress_log(
@@ -711,198 +637,3 @@ fn fetch_project_progress_log(
     Ok(logs)
 }
 
-/// Fetch lessons learned linked to a project.
-fn fetch_project_lessons(
-    conn: &rusqlite::Connection,
-    project_id: i64,
-) -> Result<Vec<LessonResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT l.id, l.created_at, l.updated_at, l.title, l.context, l.lesson, \
-         l.application, l.source_entry_id, l.source_project_id, \
-         l.date_range_start, l.date_range_end, l.date_range_label \
-         FROM lessons_learned l \
-         WHERE l.source_project_id = ?1 \
-         ORDER BY l.created_at DESC",
-    )?;
-
-    let lesson_rows: Vec<LessonRow> = stmt
-        .query_map(rusqlite::params![project_id], |row| {
-            Ok(LessonRow {
-                id: row.get(0)?,
-                created_at: row.get(1)?,
-                updated_at: row.get(2)?,
-                title: row.get(3)?,
-                context: row.get(4)?,
-                lesson: row.get(5)?,
-                application: row.get(6)?,
-                source_entry_id: row.get(7)?,
-                source_project_id: row.get(8)?,
-                date_range_start: row.get(9)?,
-                date_range_end: row.get(10)?,
-                date_range_label: row.get(11)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    let mut lessons = Vec::new();
-    for lr in lesson_rows {
-        // Fetch source_entry_title if source_entry_id is set
-        let source_entry_title = if let Some(entry_id) = lr.source_entry_id {
-            conn.query_row(
-                "SELECT title FROM entries WHERE id = ?1",
-                rusqlite::params![entry_id],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
-        } else {
-            None
-        };
-
-        // Fetch source_project_name if source_project_id is set
-        let source_project_name = if let Some(proj_id) = lr.source_project_id {
-            conn.query_row(
-                "SELECT name FROM projects WHERE id = ?1",
-                rusqlite::params![proj_id],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
-        } else {
-            None
-        };
-
-        // Fetch tags for this lesson
-        let tags = fetch_lesson_tags(conn, lr.id)?;
-
-        // Fetch links for this lesson
-        let links = fetch_links(conn, "lesson", lr.id)?;
-
-        // Fetch attachments for this lesson
-        let attachments = fetch_attachments(conn, "lesson", lr.id)?;
-
-        lessons.push(LessonResponse {
-            id: lr.id,
-            created_at: lr.created_at,
-            updated_at: lr.updated_at,
-            title: lr.title,
-            context: lr.context,
-            lesson: lr.lesson,
-            application: lr.application,
-            source_entry_id: lr.source_entry_id,
-            source_project_id: lr.source_project_id,
-            source_entry_title,
-            source_project_name,
-            date_range_start: lr.date_range_start,
-            date_range_end: lr.date_range_end,
-            date_range_label: lr.date_range_label,
-            tags,
-            links,
-            attachments,
-        });
-    }
-
-    Ok(lessons)
-}
-
-/// Temporary struct for holding lesson row data.
-struct LessonRow {
-    id: i64,
-    created_at: String,
-    updated_at: String,
-    title: String,
-    context: Option<String>,
-    lesson: Option<String>,
-    application: Option<String>,
-    source_entry_id: Option<i64>,
-    source_project_id: Option<i64>,
-    date_range_start: Option<String>,
-    date_range_end: Option<String>,
-    date_range_label: Option<String>,
-}
-
-/// Fetch tags for a lesson.
-fn fetch_lesson_tags(
-    conn: &rusqlite::Connection,
-    lesson_id: i64,
-) -> Result<Vec<TagResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT t.id, t.name, t.created_at \
-         FROM tags t \
-         JOIN lesson_tags lt ON t.id = lt.tag_id \
-         WHERE lt.lesson_id = ?1 \
-         ORDER BY t.name",
-    )?;
-
-    let tags = stmt
-        .query_map(rusqlite::params![lesson_id], |row| {
-            Ok(TagResponse {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                created_at: row.get(2)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(tags)
-}
-
-/// Fetch links for a given parent type and ID.
-fn fetch_links(
-    conn: &rusqlite::Connection,
-    parent_type: &str,
-    parent_id: i64,
-) -> Result<Vec<LinkResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_type, parent_id, url, label, created_at \
-         FROM links WHERE parent_type = ?1 AND parent_id = ?2 \
-         ORDER BY created_at ASC",
-    )?;
-
-    let links = stmt
-        .query_map(rusqlite::params![parent_type, parent_id], |row| {
-            Ok(LinkResponse {
-                id: row.get(0)?,
-                parent_type: row.get(1)?,
-                parent_id: row.get(2)?,
-                url: row.get(3)?,
-                label: row.get(4)?,
-                created_at: row.get(5)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(links)
-}
-
-/// Fetch attachments for a given parent type and ID.
-fn fetch_attachments(
-    conn: &rusqlite::Connection,
-    parent_type: &str,
-    parent_id: i64,
-) -> Result<Vec<AttachmentResponse>, AppError> {
-    let mut stmt = conn.prepare(
-        "SELECT id, parent_type, parent_id, filename, original_name, file_size, mime_type, created_at \
-         FROM attachments WHERE parent_type = ?1 AND parent_id = ?2 \
-         ORDER BY created_at ASC",
-    )?;
-
-    let attachments = stmt
-        .query_map(rusqlite::params![parent_type, parent_id], |row| {
-            Ok(AttachmentResponse {
-                id: row.get(0)?,
-                parent_type: row.get(1)?,
-                parent_id: row.get(2)?,
-                filename: row.get(3)?,
-                original_name: row.get(4)?,
-                file_size: row.get(5)?,
-                mime_type: row.get(6)?,
-                created_at: row.get(7)?,
-            })
-        })?
-        .filter_map(|r| r.ok())
-        .collect();
-
-    Ok(attachments)
-}

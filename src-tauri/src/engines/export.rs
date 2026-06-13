@@ -36,9 +36,7 @@ pub struct EntryExportData {
     pub id: i64,
     pub title: String,
     pub description: Option<String>,
-    pub impact: Option<String>,
     pub entry_type: String,
-    pub work_type: String,
     pub status: String,
     pub entry_date: String,
     pub project_id: Option<i64>,
@@ -380,8 +378,15 @@ pub fn generate_modular_report(data: &ExportData, sections: &ModularReportSectio
             .collect();
 
         if !other_entries.is_empty() {
-            lines.push("## Other Work".to_string());
-            lines.push(String::new());
+            // Only show the "Other Work" heading if there were also program sections rendered.
+            // If ALL entries are unassigned, skip the heading — they ARE the main content.
+            let any_program_entries = data.entries.iter().any(|e| {
+                resolve_program(e.program_id, e.project_id, &project_lookup, &goal_lookup).is_some()
+            });
+            if any_program_entries {
+                lines.push("## Other Work".to_string());
+                lines.push(String::new());
+            }
             for entry in &other_entries {
                 render_entry_bullet(&mut lines, entry);
             }
@@ -413,11 +418,6 @@ fn render_entry_bullet(lines: &mut Vec<String>, entry: &EntryExportData) {
     if let Some(ref desc) = entry.description {
         if !desc.is_empty() {
             lines.push(format!("  - {}", desc));
-        }
-    }
-    if let Some(ref impact) = entry.impact {
-        if !impact.is_empty() {
-            lines.push(format!("  - Impact: {}", impact));
         }
     }
 }
@@ -550,16 +550,14 @@ mod tests {
         let data = ExportData {
             programs: vec![ProgramExportData {
                 id: 1,
-                name: "My Program".to_string(),
+                name: "ACO AI".to_string(),
                 description: None,
             }],
             entries: vec![EntryExportData {
                 id: 1,
                 title: "Built export engine".to_string(),
                 description: Some("Ported from Python".to_string()),
-                impact: None,
                 entry_type: "milestone".to_string(),
-                work_type: "project".to_string(),
                 status: "completed".to_string(),
                 entry_date: "2025-01-15".to_string(),
                 project_id: None,
@@ -581,7 +579,7 @@ mod tests {
 
         assert!(report.contains("# Report — 2025-01-01 to 2025-01-31"));
         assert!(report.contains("## Executive Summary"));
-        assert!(report.contains("## My Program"));
+        assert!(report.contains("## ACO AI"));
         assert!(report.contains("★ Built export engine"));
     }
 

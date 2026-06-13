@@ -109,7 +109,7 @@ async fn get_dashboard(
 
     // operational_rhythm_count (current quarter)
     let operational_rhythm_count: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM entries WHERE work_type = 'operational_rhythm' \
+        "SELECT COUNT(*) FROM entries WHERE entry_type = 'operational_rhythm' \
          AND entry_date >= ?1 AND entry_date <= ?2",
         rusqlite::params![q_start.to_string(), q_end.to_string()],
         |row| row.get(0),
@@ -352,7 +352,7 @@ async fn get_dashboard(
         let mut stmt = conn.prepare(
             "SELECT sii.id, sii.scheduled_item_id, sii.due_date, sii.due_time, \
                     si.name, si.program_id, prog.name AS program_name, \
-                    si.quick_complete, si.template_entry_type, si.template_work_type, \
+                    si.template_entry_type, \
                     si.project_id, si.item_class, si.recurrence_type, \
                     proj.name AS project_name, si.require_acknowledgment \
              FROM scheduled_item_instances sii \
@@ -376,14 +376,12 @@ async fn get_dashboard(
                 "name": row.get::<_, String>(4)?,
                 "program_id": row.get::<_, Option<i64>>(5)?,
                 "program_name": row.get::<_, Option<String>>(6)?,
-                "quick_complete": row.get::<_, Option<i64>>(7)?,
-                "template_entry_type": row.get::<_, Option<String>>(8)?,
-                "template_work_type": row.get::<_, Option<String>>(9)?,
-                "project_id": row.get::<_, Option<i64>>(10)?,
-                "item_class": row.get::<_, String>(11)?,
-                "recurrence_type": row.get::<_, Option<String>>(12)?,
-                "project_name": row.get::<_, Option<String>>(13)?,
-                "require_acknowledgment": row.get::<_, Option<i64>>(14)?,
+                "template_entry_type": row.get::<_, Option<String>>(7)?,
+                "project_id": row.get::<_, Option<i64>>(8)?,
+                "item_class": row.get::<_, String>(9)?,
+                "recurrence_type": row.get::<_, Option<String>>(10)?,
+                "project_name": row.get::<_, Option<String>>(11)?,
+                "require_acknowledgment": row.get::<_, Option<i64>>(12)?,
             }))
         })?;
 
@@ -671,7 +669,7 @@ mod tests {
         state: &SharedState,
         entry_date: &str,
         entry_type: &str,
-        work_type: &str,
+        _work_type: &str,
         title: &str,
         status: &str,
         is_weekly_highlight: i64,
@@ -680,12 +678,11 @@ mod tests {
         let conn = state.pool.get().unwrap();
         conn.query_row(
             "INSERT INTO entries \
-                 (entry_date, entry_type, work_type, title, status, is_weekly_highlight, program_id) \
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) RETURNING id",
+                 (entry_date, entry_type, title, status, is_weekly_highlight, program_id) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6) RETURNING id",
             rusqlite::params![
                 entry_date,
                 entry_type,
-                work_type,
                 title,
                 status,
                 is_weekly_highlight,
@@ -710,9 +707,9 @@ mod tests {
         let conn = state.pool.get().unwrap();
         conn.query_row(
             "INSERT INTO scheduled_items \
-                 (name, mode, template_entry_type, template_work_type, \
+                 (name, mode, template_entry_type, \
                   template_visibility, item_class, program_id) \
-             VALUES (?1, 'recurring', 'operational_rhythm', 'operational_rhythm', \
+             VALUES (?1, 'recurring', 'operational_rhythm', \
                      'shareable', ?2, ?3) RETURNING id",
             rusqlite::params![name, item_class, program_id],
             |row| row.get::<_, i64>(0),

@@ -287,7 +287,7 @@ async fn reset_data(
 async fn read_multipart_json(
     mut multipart: Multipart,
 ) -> Result<serde_json::Value, AppError> {
-    while let Some(field) = multipart
+    if let Some(field) = multipart
         .next_field()
         .await
         .map_err(|e| AppError::Validation(format!("Invalid multipart: {}", e)))?
@@ -301,10 +301,10 @@ async fn read_multipart_json(
 
         let parsed: serde_json::Value = serde_json::from_slice(&bytes)
             .map_err(|e| AppError::Validation(format!("Invalid JSON file: {}", e)))?;
-        return Ok(parsed);
+        Ok(parsed)
+    } else {
+        Err(AppError::Validation("No file in multipart upload".into()))
     }
-
-    Err(AppError::Validation("No file in multipart upload".into()))
 }
 
 /// Metadata fields extracted from the envelope wrapper (if present).
@@ -637,7 +637,7 @@ mod tests {
             .collect()
     }
 
-    /// Insert `n` entries with valid entry_type/work_type. Returns ids.
+    /// Insert `n` entries with valid entry_type. Returns ids.
     /// Each entry gets a synthetic scheduled_item_id to satisfy the v3 unified model.
     fn seed_entries(state: &SharedState, n: usize) -> Vec<i64> {
         let conn = state.pool.get().unwrap();
@@ -651,8 +651,8 @@ mod tests {
                     |row| row.get(0),
                 ).unwrap();
                 conn.query_row(
-                    "INSERT INTO entries (entry_date, entry_type, work_type, title, scheduled_item_id) \
-                     VALUES ('2026-01-15', 'quick_capture', 'operational_rhythm', ?1, ?2) \
+                    "INSERT INTO entries (entry_date, entry_type, title, scheduled_item_id) \
+                     VALUES ('2026-01-15', 'quick_capture', ?1, ?2) \
                      RETURNING id",
                     rusqlite::params![format!("Entry {}", i), item_id],
                     |row| row.get::<_, i64>(0),

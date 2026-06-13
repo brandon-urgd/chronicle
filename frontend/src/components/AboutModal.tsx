@@ -64,8 +64,7 @@ export default function AboutModal({ onClose }: AboutModalProps) {
     <div
       ref={overlayRef}
       style={{
-        position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)',
-        backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+        position: 'fixed', inset: 0, background: 'var(--modal-overlay)',
         display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000,
       }}
       onClick={onClose}
@@ -104,16 +103,16 @@ export default function AboutModal({ onClose }: AboutModalProps) {
           </p>
         </div>
 
-        {/* v3.0.0 Release Notes */}
+        {/* v3.1.0 Release Notes */}
         <div style={sectionStyle}>
-          <h3 style={h3Style}>What's New in v3.0.0</h3>
+          <h3 style={h3Style}>What's New in v3.1.0</h3>
           <ul style={{ margin: 0, paddingLeft: '20px', fontSize: '13px', color: 'var(--text-secondary)', lineHeight: 1.8 }}>
-            <li>Unified data model — tasks are the only input, entries are the output</li>
-            <li>Time Distribution page — see where you spend your time by program/project</li>
-            <li>Dashboard view modes — toggle Upcoming between "By Date" and "By Program"</li>
-            <li>Graceful DB recovery — recovery screen instead of crash on database errors</li>
-            <li>File attachments — upload, download, and delete files on entries/projects</li>
-            <li>Timeline delete — remove entries directly from the edit form</li>
+            <li>Schema lean-out — streamlined to 14 tables, removed unused columns and dead features</li>
+            <li>Squid Ink design system — cool-toned light mode + Warm Charcoal dark mode with elevation tokens</li>
+            <li>Detail Panel — click entries or tasks to open a slide-in panel from the right (no more modal editing)</li>
+            <li>Six entry types — quick_capture, project_update, operational_rhythm, milestone, decision, recognition</li>
+            <li>MCP v3.1 signatures — leaner tool parameters, no dead fields in responses</li>
+            <li>Timeline delete — remove entries directly from the detail panel</li>
             <li>Section persistence — Dashboard collapse states survive page refresh</li>
             <li>Server-side search — Portfolio search now queries the backend</li>
           </ul>
@@ -130,13 +129,21 @@ export default function AboutModal({ onClose }: AboutModalProps) {
           </p>
         </div>
 
+        {/* Architecture Overview */}
+        <div style={sectionStyle}>
+          <h3 style={h3Style}>Architecture</h3>
+          <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.8 }}>
+            14-table lean schema · MCP server (Python, direct SQLite access) · Squid Ink light + Warm Charcoal dark design system · DetailPanel slide-in pattern · Elevation-based depth hierarchy
+          </p>
+        </div>
+
         {/* Creator Credit */}
         <div style={{ marginTop: '1rem', paddingTop: '0.75rem', borderTop: '1px solid var(--card-border)' }}>
           <p style={{ fontSize: '13px', color: 'var(--text-primary)', margin: '0 0 4px' }}>
             Created by Brandon Hill-Rogers
           </p>
           <p style={{ fontSize: '12px', color: 'var(--text-secondary)', margin: '0 0 6px' }}>
-            brandon@urgdstudios.com · ur/gd Studios
+            bhillrog@amazon.com · ACO, Amazon AIR — Global Aviation Operations
           </p>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', margin: 0 }}>
             Version {displayVersion}

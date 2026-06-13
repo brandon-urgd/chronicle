@@ -155,21 +155,38 @@ function parseLeadershipUpdate(
   notes: ReviewNoteData[], subtitle: string, dateRange: string, sessionNotes: string | null,
   projMap: Record<number, string>,
 ): ParsedExport {
-  const opRhythm = entries.filter(e => e.work_type === 'operational_rhythm');
-  const nonOp = entries.filter(e => e.work_type !== 'operational_rhythm');
+  const opRhythm = entries.filter(e => e.entry_type === 'operational_rhythm');
+  const nonOp = entries.filter(e => e.entry_type !== 'operational_rhythm');
 
-  // Group by project
+  // Group by project — entries without a project go into the general list (no "Other Work" heading)
   const byProject: Record<string, EntryData[]> = {};
+  const unassigned: EntryData[] = [];
   nonOp.forEach(e => {
-    const key = e.project_id ? projMap[e.project_id] ?? `Project ${e.project_id}` : 'Other Work';
-    (byProject[key] ??= []).push(e);
+    if (e.project_id) {
+      const key = projMap[e.project_id] ?? `Project ${e.project_id}`;
+      (byProject[key] ??= []).push(e);
+    } else {
+      unassigned.push(e);
+    }
   });
 
   const sections: ExportSection[] = [];
+
+  // Unassigned entries first (no project) — these are the main content when no projects exist
+  if (unassigned.length > 0) {
+    const sorted = [...unassigned].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
+    sections.push(section('key-entries', 'Key Entries', sorted.map(e =>
+      makeItem(e.id, 'entry', e.title, { description: trim(e.description), metrics: null, impact: null,
+        projectName: e.project_name, date: e.entry_date, entryType: e.entry_type, status: e.status,
+        reviewNote: findNote(notes, 'entry', e.id) })
+    )));
+  }
+
+  // Project-grouped entries
   for (const [projName, group] of Object.entries(byProject)) {
     const sorted = [...group].sort((a, b) => a.entry_date.localeCompare(b.entry_date));
     sections.push(section(`proj-${projName}`, projName, sorted.map(e =>
-      makeItem(e.id, 'entry', e.title, { description: trim(e.description), metrics: e.metrics, impact: e.impact,
+      makeItem(e.id, 'entry', e.title, { description: trim(e.description), metrics: null, impact: null,
         projectName: e.project_name, date: e.entry_date, entryType: e.entry_type, status: e.status,
         reviewNote: findNote(notes, 'entry', e.id) })
     )));
@@ -198,8 +215,8 @@ function parseSelfReview(
   _projMap: Record<number, string>,
 ): ParsedExport {
   const sections: ExportSection[] = [];
-  const opRhythm = entries.filter(e => e.work_type === 'operational_rhythm');
-  const nonOp = entries.filter(e => e.work_type !== 'operational_rhythm');
+  const opRhythm = entries.filter(e => e.entry_type === 'operational_rhythm');
+  const nonOp = entries.filter(e => e.entry_type !== 'operational_rhythm');
   const entriesByProject: Record<number, EntryData[]> = {};
   nonOp.forEach(e => { if (e.project_id) (entriesByProject[e.project_id] ??= []).push(e); });
 
@@ -281,8 +298,8 @@ function parseStatusUpdate(
   _projMap: Record<number, string>,
 ): ParsedExport {
   const completed = entries.filter(e => e.status === 'completed');
-  const nonOpCompleted = completed.filter(e => e.work_type !== 'operational_rhythm').slice(0, 7);
-  const opCompleted = completed.filter(e => e.work_type === 'operational_rhythm');
+  const nonOpCompleted = completed.filter(e => e.entry_type !== 'operational_rhythm').slice(0, 7);
+  const opCompleted = completed.filter(e => e.entry_type === 'operational_rhythm');
   const decisions = entries.filter(e => e.entry_type === 'decision');
 
   const atRiskGoals = goals.filter(g => g.status === 'at_risk' || g.status === 'behind').slice(0, 3);

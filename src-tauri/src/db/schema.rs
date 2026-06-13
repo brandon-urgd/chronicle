@@ -1,7 +1,7 @@
 //! Schema initialization for the Chronicle SQLite database.
 //!
 //! Contains all CREATE TABLE IF NOT EXISTS statements and performance indexes.
-//! This represents the final v2.0.0 schema with all migrations applied.
+//! This represents the v3.1.0 lean schema with dead tables and unused columns removed.
 //! The Rust backend creates tables in their fully-migrated form so that
 //! existing databases (already migrated) and fresh databases both work.
 
@@ -19,13 +19,20 @@ pub fn initialize_schema(conn: &rusqlite::Connection) -> rusqlite::Result<()> {
     Ok(())
 }
 
-/// All CREATE TABLE IF NOT EXISTS statements for the Chronicle schema.
+/// All CREATE TABLE IF NOT EXISTS statements for the Chronicle v3.1 lean schema.
 ///
-/// Tables are ordered to respect foreign key dependencies:
-/// - Independent tables first (programs, goals, settings, tags, stakeholders)
+/// Only 14 tables are created. Tables ordered to respect foreign key dependencies:
+/// - Independent tables first (programs, settings, tags)
 /// - Dependent tables after their parents (projects → entries → instances, etc.)
+///
+/// Removed in v3.1:
+/// - Tables: review_sessions, review_notes, lessons_learned, lesson_tags,
+///   attachments, links, program_progress_log, stakeholders, project_stakeholders
+/// - Entry columns: impact, work_type, metrics, outcome, is_lesson_learned
+/// - Scheduled_items columns: time_of_day, day_range_start, day_range_end,
+///   template_tags, quick_complete, month_of_year, template_work_type
 const SCHEMA_SQL: &str = r#"
--- 0a. programs (no FK dependencies)
+-- 1. programs (no FK dependencies)
 CREATE TABLE IF NOT EXISTS programs (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -41,16 +48,7 @@ CREATE TABLE IF NOT EXISTS programs (
     sort_order INTEGER NOT NULL DEFAULT 0
 );
 
--- 0b. program_progress_log (references programs)
-CREATE TABLE IF NOT EXISTS program_progress_log (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    program_id INTEGER NOT NULL REFERENCES programs(id) ON DELETE CASCADE,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    note TEXT NOT NULL,
-    status_at_time TEXT NOT NULL
-);
-
--- 1. goals (references programs)
+-- 2. goals (references programs)
 CREATE TABLE IF NOT EXISTS goals (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -72,7 +70,7 @@ CREATE TABLE IF NOT EXISTS goals (
     program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL
 );
 
--- 2. projects (references goals, programs)
+-- 3. projects (references goals, programs)
 CREATE TABLE IF NOT EXISTS projects (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -91,7 +89,7 @@ CREATE TABLE IF NOT EXISTS projects (
     program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL
 );
 
--- 2b. scheduled_items (references programs, projects)
+-- 4. scheduled_items (references programs, projects)
 CREATE TABLE IF NOT EXISTS scheduled_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -105,17 +103,10 @@ CREATE TABLE IF NOT EXISTS scheduled_items (
     )),
     day_of_week INTEGER,
     day_of_month INTEGER,
-    month_of_year INTEGER,
-    time_of_day TEXT,
-    day_range_start INTEGER,
-    day_range_end INTEGER,
     program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL,
     project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     template_entry_type TEXT NOT NULL DEFAULT 'operational_rhythm',
-    template_work_type TEXT NOT NULL DEFAULT 'operational_rhythm',
-    template_tags TEXT,
     template_visibility TEXT NOT NULL DEFAULT 'shareable',
-    quick_complete INTEGER NOT NULL DEFAULT 0,
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN (
         'active', 'paused', 'archived', 'completed'
     )),
@@ -125,7 +116,7 @@ CREATE TABLE IF NOT EXISTS scheduled_items (
     require_acknowledgment INTEGER NOT NULL DEFAULT 0
 );
 
--- 3. entries (references projects, programs, scheduled_items)
+-- 5. entries (references projects, programs, scheduled_items)
 CREATE TABLE IF NOT EXISTS entries (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -136,11 +127,8 @@ CREATE TABLE IF NOT EXISTS entries (
         'development', 'recognition', 'decision', 'milestone',
         'action_item', 'program_update'
     )),
-    work_type TEXT NOT NULL CHECK (work_type IN ('project', 'operational_rhythm')),
     title TEXT NOT NULL,
     description TEXT,
-    impact TEXT,
-    metrics TEXT,
     project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
     status TEXT NOT NULL DEFAULT 'completed' CHECK (status IN (
         'in_progress', 'completed', 'ongoing', 'paused'
@@ -149,15 +137,13 @@ CREATE TABLE IF NOT EXISTS entries (
         'personal', 'shareable'
     )),
     is_accomplishment INTEGER NOT NULL DEFAULT 0,
-    is_lesson_learned INTEGER NOT NULL DEFAULT 0,
     is_weekly_highlight INTEGER NOT NULL DEFAULT 0,
     is_pinned INTEGER NOT NULL DEFAULT 0,
-    outcome TEXT,
     program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL,
     scheduled_item_id INTEGER
 );
 
--- 3b. scheduled_item_instances (references scheduled_items, entries)
+-- 6. scheduled_item_instances (references scheduled_items, entries)
 CREATE TABLE IF NOT EXISTS scheduled_item_instances (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     scheduled_item_id INTEGER NOT NULL REFERENCES scheduled_items(id) ON DELETE CASCADE,
@@ -174,7 +160,7 @@ CREATE TABLE IF NOT EXISTS scheduled_item_instances (
     UNIQUE(scheduled_item_id, due_date)
 );
 
--- 4. goal_progress_log (references goals)
+-- 7. goal_progress_log (references goals)
 CREATE TABLE IF NOT EXISTS goal_progress_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     goal_id INTEGER NOT NULL REFERENCES goals(id) ON DELETE CASCADE,
@@ -183,7 +169,7 @@ CREATE TABLE IF NOT EXISTS goal_progress_log (
     status_at_time TEXT NOT NULL
 );
 
--- 4b. project_progress_log (references projects)
+-- 8. project_progress_log (references projects)
 CREATE TABLE IF NOT EXISTS project_progress_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
@@ -192,119 +178,29 @@ CREATE TABLE IF NOT EXISTS project_progress_log (
     status_at_time TEXT NOT NULL
 );
 
--- 5. lessons_learned (references entries, projects)
-CREATE TABLE IF NOT EXISTS lessons_learned (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
-    title TEXT NOT NULL,
-    context TEXT,
-    lesson TEXT,
-    application TEXT,
-    source_entry_id INTEGER REFERENCES entries(id) ON DELETE SET NULL,
-    source_project_id INTEGER REFERENCES projects(id) ON DELETE SET NULL,
-    date_range_start TEXT,
-    date_range_end TEXT,
-    date_range_label TEXT
-);
-
--- 6. tags (no FK dependencies)
+-- 9. tags (no FK dependencies)
 CREATE TABLE IF NOT EXISTS tags (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- 7. entry_tags (references entries, tags)
+-- 10. entry_tags (references entries, tags)
 CREATE TABLE IF NOT EXISTS entry_tags (
     entry_id INTEGER NOT NULL REFERENCES entries(id) ON DELETE CASCADE,
     tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
     PRIMARY KEY (entry_id, tag_id)
 );
 
--- 8. lesson_tags (references lessons_learned, tags)
-CREATE TABLE IF NOT EXISTS lesson_tags (
-    lesson_id INTEGER NOT NULL REFERENCES lessons_learned(id) ON DELETE CASCADE,
-    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
-    PRIMARY KEY (lesson_id, tag_id)
-);
-
--- 9. links (no FK dependencies — polymorphic parent)
-CREATE TABLE IF NOT EXISTS links (
+-- 11. notes (no FK dependencies)
+CREATE TABLE IF NOT EXISTS notes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_type TEXT NOT NULL CHECK (parent_type IN (
-        'entry', 'project', 'goal', 'lesson', 'program'
-    )),
-    parent_id INTEGER NOT NULL,
-    url TEXT NOT NULL,
-    label TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- 10. attachments (no FK dependencies — polymorphic parent)
-CREATE TABLE IF NOT EXISTS attachments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    parent_type TEXT NOT NULL CHECK (parent_type IN (
-        'entry', 'project', 'goal', 'lesson', 'program'
-    )),
-    parent_id INTEGER NOT NULL,
-    filename TEXT NOT NULL,
-    original_name TEXT NOT NULL,
-    file_size INTEGER NOT NULL,
-    mime_type TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- 11. settings (no FK dependencies)
-CREATE TABLE IF NOT EXISTS settings (
-    key TEXT PRIMARY KEY,
-    value TEXT
-);
-
--- 12. review_sessions (references programs)
-CREATE TABLE IF NOT EXISTS review_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    review_date TEXT NOT NULL,
-    date_range_start TEXT NOT NULL,
-    date_range_end TEXT NOT NULL,
-    review_type TEXT NOT NULL CHECK (review_type IN (
-        'weekly', 'monthly', 'quarterly', 'annual', 'custom'
-    )),
-    session_notes TEXT,
+    text TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    program_id INTEGER REFERENCES programs(id) ON DELETE SET NULL
+    dismissed_at TEXT
 );
 
--- 13. review_notes (references review_sessions)
-CREATE TABLE IF NOT EXISTS review_notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    review_session_id INTEGER NOT NULL REFERENCES review_sessions(id) ON DELETE CASCADE,
-    parent_type TEXT CHECK (parent_type IN (
-        'entry', 'project', 'goal', 'lesson', 'program'
-    ) OR parent_type IS NULL),
-    parent_id INTEGER,
-    note_text TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- 14. stakeholders (no FK dependencies)
-CREATE TABLE IF NOT EXISTS stakeholders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT,
-    role TEXT,
-    notes TEXT,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- 15. project_stakeholders (references projects, stakeholders)
-CREATE TABLE IF NOT EXISTS project_stakeholders (
-    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
-    stakeholder_id INTEGER NOT NULL REFERENCES stakeholders(id) ON DELETE CASCADE,
-    PRIMARY KEY (project_id, stakeholder_id)
-);
-
--- 16. report_presets (references programs)
+-- 12. report_presets (references programs)
 CREATE TABLE IF NOT EXISTS report_presets (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -316,15 +212,7 @@ CREATE TABLE IF NOT EXISTS report_presets (
     is_default INTEGER NOT NULL DEFAULT 0
 );
 
--- 17. notes (no FK dependencies)
-CREATE TABLE IF NOT EXISTS notes (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    text TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now')),
-    dismissed_at TEXT
-);
-
--- 18. report_drafts (references report_presets)
+-- 13. report_drafts (references report_presets)
 CREATE TABLE IF NOT EXISTS report_drafts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,
@@ -336,12 +224,18 @@ CREATE TABLE IF NOT EXISTS report_drafts (
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+
+-- 14. settings (no FK dependencies)
+CREATE TABLE IF NOT EXISTS settings (
+    key TEXT PRIMARY KEY,
+    value TEXT
+);
 "#;
 
 /// All CREATE INDEX IF NOT EXISTS statements for performance.
 ///
-/// Includes the 9 general performance indexes plus 4 specialized indexes
-/// for scheduled instances, notes, and report drafts.
+/// Includes indexes for scheduled instances, entries, goals, projects,
+/// notes, and report drafts.
 const INDEX_SQL: &str = r#"
 -- Scheduled item instance indexes (critical for due-date queries)
 CREATE INDEX IF NOT EXISTS idx_si_instances_due ON scheduled_item_instances(due_date, status);
@@ -358,10 +252,6 @@ CREATE INDEX IF NOT EXISTS idx_goals_program ON goals(program_id);
 CREATE INDEX IF NOT EXISTS idx_projects_program ON projects(program_id);
 CREATE INDEX IF NOT EXISTS idx_projects_goal ON projects(goal_id);
 
--- Polymorphic parent indexes (links and attachments)
-CREATE INDEX IF NOT EXISTS idx_links_parent ON links(parent_type, parent_id);
-CREATE INDEX IF NOT EXISTS idx_attachments_parent ON attachments(parent_type, parent_id);
-
 -- Notes index (active/dismissed filtering)
 CREATE INDEX IF NOT EXISTS idx_notes_active ON notes(dismissed_at);
 
@@ -374,7 +264,7 @@ mod tests {
     use super::*;
     use rusqlite::Connection;
 
-    /// Verify that initialize_schema creates all 23 tables successfully.
+    /// Verify that initialize_schema creates all 14 tables successfully.
     #[test]
     fn test_initialize_schema_creates_all_tables() {
         let conn = Connection::open_in_memory().unwrap();
@@ -395,28 +285,19 @@ mod tests {
             .collect();
 
         let expected_tables = vec![
-            "attachments",
             "entries",
             "entry_tags",
             "goal_progress_log",
             "goals",
-            "lesson_tags",
-            "lessons_learned",
-            "links",
             "notes",
-            "program_progress_log",
             "programs",
             "project_progress_log",
-            "project_stakeholders",
             "projects",
             "report_drafts",
             "report_presets",
-            "review_notes",
-            "review_sessions",
             "scheduled_item_instances",
             "scheduled_items",
             "settings",
-            "stakeholders",
             "tags",
         ];
 
@@ -458,13 +339,11 @@ mod tests {
             .collect();
 
         let expected_indexes = vec![
-            "idx_attachments_parent",
             "idx_entries_date",
             "idx_entries_program",
             "idx_entries_project",
             "idx_entries_type",
             "idx_goals_program",
-            "idx_links_parent",
             "idx_notes_active",
             "idx_projects_goal",
             "idx_projects_program",
@@ -496,7 +375,7 @@ mod tests {
         ];
         for entry_type in valid_types {
             conn.execute(
-                "INSERT INTO entries (entry_date, entry_type, work_type, title) VALUES (?1, ?2, 'project', 'test')",
+                "INSERT INTO entries (entry_date, entry_type, title) VALUES (?1, ?2, 'test')",
                 rusqlite::params!["2025-01-01", entry_type],
             )
             .unwrap_or_else(|e| panic!("Valid entry_type '{entry_type}' was rejected: {e}"));
@@ -504,7 +383,7 @@ mod tests {
 
         // Invalid entry type should fail
         let result = conn.execute(
-            "INSERT INTO entries (entry_date, entry_type, work_type, title) VALUES ('2025-01-01', 'invalid_type', 'project', 'test')",
+            "INSERT INTO entries (entry_date, entry_type, title) VALUES ('2025-01-01', 'invalid_type', 'test')",
             [],
         );
         assert!(result.is_err(), "Invalid entry_type should be rejected");
@@ -541,32 +420,32 @@ mod tests {
         assert!(result.is_err(), "Invalid instance status should be rejected");
     }
 
-    /// Verify foreign key CASCADE delete works (programs → program_progress_log).
+    /// Verify foreign key CASCADE delete works (goals → goal_progress_log).
     #[test]
-    fn test_cascade_delete_program_progress() {
+    fn test_cascade_delete_goal_progress() {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys=ON;").unwrap();
         initialize_schema(&conn).unwrap();
 
-        conn.execute("INSERT INTO programs (name) VALUES ('Test Program')", [])
+        conn.execute("INSERT INTO goals (title) VALUES ('Test Goal')", [])
             .unwrap();
         conn.execute(
-            "INSERT INTO program_progress_log (program_id, note, status_at_time) VALUES (1, 'progress', 'active')",
+            "INSERT INTO goal_progress_log (goal_id, note, status_at_time) VALUES (1, 'progress', 'on_track')",
             [],
         )
         .unwrap();
 
         // Verify log exists
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM program_progress_log", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM goal_progress_log", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 1);
 
-        // Delete program — should CASCADE to progress log
-        conn.execute("DELETE FROM programs WHERE id = 1", []).unwrap();
+        // Delete goal — should CASCADE to progress log
+        conn.execute("DELETE FROM goals WHERE id = 1", []).unwrap();
 
         let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM program_progress_log", [], |row| row.get(0))
+            .query_row("SELECT COUNT(*) FROM goal_progress_log", [], |row| row.get(0))
             .unwrap();
         assert_eq!(count, 0);
     }
@@ -678,8 +557,8 @@ mod tests {
             // Phase 3: Create entries referencing the project
             for i in 0..num_entries {
                 conn.execute(
-                    "INSERT INTO entries (entry_date, entry_type, work_type, title, project_id, program_id) \
-                     VALUES ('2025-01-15', 'quick_capture', 'project', ?1, ?2, 1)",
+                    "INSERT INTO entries (entry_date, entry_type, title, project_id, program_id) \
+                     VALUES ('2025-01-15', 'quick_capture', ?1, ?2, 1)",
                     rusqlite::params![format!("Entry {}", i), project_id],
                 ).unwrap();
             }

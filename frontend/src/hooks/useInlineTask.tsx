@@ -583,7 +583,7 @@ export function useInlineTask(options: UseInlineTaskOptions = {}) {
           {!options.editOnly && (
             <>
               <button style={{ ...btnStyle('var(--btn-complete-bg)', '#fff'), opacity: busy ? 0.5 : 1 }}
-                onClick={() => handleTaskComplete(taskId, nextPendingDate ?? inlineTaskData.due_date)} disabled={busy}>Quick Complete</button>
+                onClick={() => handleTaskComplete(taskId, nextPendingDate ?? inlineTaskData.due_date)} disabled={busy}>Complete</button>
               <button style={{ ...btnStyle('var(--accent-primary)', '#fff'), opacity: busy ? 0.5 : 1 }}
                 onClick={() => setShowCompleteForm(!showCompleteForm)} disabled={busy}>
                 {showCompleteForm ? '▲ Hide Details' : '▼ Complete with Details'}
